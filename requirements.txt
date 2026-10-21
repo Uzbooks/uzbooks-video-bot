@@ -1,0 +1,11 @@
+google-genai>=1.30
+google-api-python-client>=2.140
+google-auth>=2.30
+google-auth-oauthlib>=1.2
+requests>=2.32
+Pillow>=10.4
+pymupdf>=1.24
+ebooklib>=0.18
+beautifulsoup4>=4.12
+python-docx>=1.1
+edge-tts>=6.1
