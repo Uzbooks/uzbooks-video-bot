@@ -1,6 +1,6 @@
 name: UzBooks
 
-on:
+'on':
   schedule:
     - cron: "7 * * * *"        # har soatda: Telegramdan yangi kitoblarni navbatga olish
     - cron: "0 14 * * 1,3,5"   # dush/chor/juma 14:00 UTC (Germaniyada 15:00-16:00): video yasash
