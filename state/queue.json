@@ -1,4 +1,13 @@
 {
-  "offset": 871369239,
-  "books": []
+  "offset": 871369242,
+  "books": [
+    {
+      "id": "b1792697310_0",
+      "file_id": "BQACAgQAAxkBAAMDatpdpSIo1jHgK0MkLhZtpsfxzbEAArsfAAL0GNBSKbNPvgHCXKw9BA",
+      "file_name": "napoleon_hill_oyla_va_boy_bol.pdf",
+      "note": "",
+      "status": "queued",
+      "added": "2026-10-22 19:28"
+    }
+  ]
 }
