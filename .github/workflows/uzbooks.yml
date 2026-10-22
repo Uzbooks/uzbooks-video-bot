@@ -1,1 +1,91 @@
+name: UzBooks
 
+on:
+  schedule:
+    - cron: "7 * * * *"        # har soatda: Telegramdan yangi kitoblarni navbatga olish
+    - cron: "0 14 * * 1,3,5"   # dush/chor/juma 14:00 UTC (Germaniyada 15:00-16:00): video yasash
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "collect yoki produce"
+        default: "produce"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: uzbooks
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Vazifani aniqlash
+        id: task
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "task=${{ github.event.inputs.task }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 14 * * 1,3,5" ]; then
+            echo "task=produce" >> $GITHUB_OUTPUT
+          else
+            echo "task=collect" >> $GITHUB_OUTPUT
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Kutubxonalar
+        run: |
+          pip install -r requirements.txt
+          if [ "${{ steps.task.outputs.task }}" = "produce" ]; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
+            mkdir -p fonts
+            curl -sL -o fonts/Montserrat-ExtraBold.ttf \
+              "https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-ExtraBold.ttf" || true
+          fi
+
+      - name: Ishga tushirish
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          TEXT_MODEL: ${{ vars.TEXT_MODEL }}
+          GEMINI_IMAGE_MODEL: ${{ vars.GEMINI_IMAGE_MODEL }}
+          ELEVENLABS_MODEL: ${{ vars.ELEVENLABS_MODEL }}
+          TTS_PROVIDER: ${{ vars.TTS_PROVIDER }}
+          EDGE_VOICE: ${{ vars.EDGE_VOICE }}
+          IMAGE_PROVIDER: ${{ vars.IMAGE_PROVIDER }}
+        run: python -m src.main ${{ steps.task.outputs.task }}
+
+      - name: Navbat holatini saqlash
+        if: always()
+        run: |
+          git config user.name "uzbooks-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add state/queue.json 2>/dev/null || true
+          git diff --cached --quiet || (git commit -m "navbat yangilandi" && git pull --rebase && git push)
+
+      - name: Natijalarni saqlash (7 kun)
+        if: steps.task.outputs.task == 'produce' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uzbooks-output
+          path: |
+            work/**/video.mp4
+            work/**/thumbnail.jpg
+            work/**/script.json
+            work/**/notes.md
+            work/**/result.json
+          retention-days: 7
+          if-no-files-found: ignore
