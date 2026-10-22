@@ -6,10 +6,10 @@
       "file_id": "BQACAgQAAxkBAAMDatpdpSIo1jHgK0MkLhZtpsfxzbEAArsfAAL0GNBSKbNPvgHCXKw9BA",
       "file_name": "napoleon_hill_oyla_va_boy_bol.pdf",
       "note": "",
-      "status": "failed_retry",
+      "status": "failed",
       "added": "2026-10-22 19:28",
-      "tries": 1,
-      "error": "Gemini matn modeli javob bermadi: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API ("
+      "tries": 2,
+      "error": "ElevenLabs xatosi 400: {\"detail\":{\"type\":\"validation_error\",\"code\":\"invalid_parameters\",\"message\":\"Model 'eleven_v3' does not support language_code 'uz'.\",\"status\":\"unsupported_language\",\"request_id\":\"a2b21930c3c9249ac7b1eb6967e32bc0\",\"param\":\"language_code\"}}"
     }
   ]
 }
