@@ -16,10 +16,10 @@
       "file_id": "BQACAgQAAxkBAAMPatubjRZHduZRnpYGsMZ4CZG2WuYAAv4cAAJAxOBSmxplS1r6EQE9BA",
       "file_name": "napoleon_hill_oyla_va_boy_bol.pdf",
       "note": "",
-      "status": "failed_retry",
+      "status": "failed",
       "added": "2026-10-23 18:21",
-      "tries": 1,
-      "error": "Gemini matn modeli javob bermadi: Server disconnected without sending a response."
+      "tries": 2,
+      "error": "Gemini matn modeli javob bermadi: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
     }
   ]
 }
