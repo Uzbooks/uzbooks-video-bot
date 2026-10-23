@@ -43,7 +43,7 @@ def _call(prompt: str, system: str | None, json_mode: bool, max_tokens: int) -> 
             last = e
             msg = str(e)
             # 429 = bepul limit, 500/503 = server band. Kutib qayta urinamiz.
-            wait = 65 if ("429" in msg or "RESOURCE_EXHAUSTED" in msg) else 20 * (attempt + 1)
+            wait = 120 if ("429" in msg or "RESOURCE_EXHAUSTED" in msg or "503" in msg or "UNAVAILABLE" in msg) else 20 * (attempt + 1)
             print(f"  Gemini xatosi ({attempt+1}/6), {wait} s kutamiz: {msg[:150]}")
             time.sleep(wait)
     raise RuntimeError(f"Gemini matn modeli javob bermadi: {last}")
