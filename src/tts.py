@@ -36,7 +36,7 @@ def _normalize(text: str) -> str:
 
 
 def _tts(text: str, dest: Path) -> None:
-    body = {"text": text, "model_id": config.ELEVENLABS_MODEL, "language_code": "uz"}
+    body = {"text": text, "model_id": config.ELEVENLABS_MODEL}
     for attempt in range(4):
         r = requests.post(URL.format(voice=config.ELEVENLABS_VOICE_ID()),
                           headers={"xi-api-key": config.ELEVENLABS_API_KEY(),
