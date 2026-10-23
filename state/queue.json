@@ -1,5 +1,5 @@
 {
-  "offset": 871369242,
+  "offset": 871369244,
   "books": [
     {
       "id": "b1792697310_0",
@@ -10,6 +10,16 @@
       "added": "2026-10-22 19:28",
       "tries": 2,
       "error": "ElevenLabs xatosi 400: {\"detail\":{\"type\":\"validation_error\",\"code\":\"invalid_parameters\",\"message\":\"Model 'eleven_v3' does not support language_code 'uz'.\",\"status\":\"unsupported_language\",\"request_id\":\"a2b21930c3c9249ac7b1eb6967e32bc0\",\"param\":\"language_code\"}}"
+    },
+    {
+      "id": "b1792779692_1",
+      "file_id": "BQACAgQAAxkBAAMPatubjRZHduZRnpYGsMZ4CZG2WuYAAv4cAAJAxOBSmxplS1r6EQE9BA",
+      "file_name": "napoleon_hill_oyla_va_boy_bol.pdf",
+      "note": "",
+      "status": "failed_retry",
+      "added": "2026-10-23 18:21",
+      "tries": 1,
+      "error": "Gemini matn modeli javob bermadi: Server disconnected without sending a response."
     }
   ]
 }
