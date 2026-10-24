@@ -1,5 +1,5 @@
 {
-  "offset": 871369245,
+  "offset": 871369247,
   "books": [
     {
       "id": "b1792697310_0",
@@ -20,6 +20,15 @@
       "added": "2026-10-23 18:21",
       "tries": 2,
       "error": "Gemini matn modeli javob bermadi: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "id": "b1792869456_2",
+      "file_id": "BQACAgQAAxkBAAMeat0D60tmlOUvNxDz577YWXsdyYYAAvIcAAJMd-hSawcZf-hR7Hg9BA",
+      "file_name": "napoleon_hill_oyla_va_boy_bol.pdf",
+      "note": "",
+      "status": "needs_review",
+      "added": "2026-10-24 19:17",
+      "video_id": null
     }
   ]
 }
