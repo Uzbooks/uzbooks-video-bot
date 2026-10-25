@@ -31,8 +31,9 @@ def _call(prompt: str, system: str | None, json_mode: bool, max_tokens: int) -> 
         response_mime_type="application/json" if json_mode else None,
     )
     last = None
-    while _models:
-        model = _models[0]
+    models = _ensure_models()
+    while models:
+        model = models[0]
         for attempt in range(4):
             try:
                 resp = _get_client().models.generate_content(
@@ -53,7 +54,7 @@ def _call(prompt: str, system: str | None, json_mode: bool, max_tokens: int) -> 
                 wait = 65 if ("429" in msg or "RESOURCE_EXHAUSTED" in msg) else 20 * (attempt + 1)
                 print(f"  {model} xatosi ({attempt+1}/4), {wait} s kutamiz: {msg[:150]}")
                 time.sleep(wait)
-        _models.pop(0)
+        models.pop(0)
     raise RuntimeError(f"Barcha Gemini matn modellarining limiti tugadi. Oxirgi xato: {str(last)[:400]}")
 
 
@@ -64,8 +65,44 @@ def _daily_quota_hit(msg: str) -> bool:
 
 
 # Har bir modelning bepul limiti alohida. Biri tugasa, keyingisi ishlatiladi.
-_models = list(dict.fromkeys(
-    [config.TEXT_MODEL] + [m.strip() for m in config.TEXT_MODEL_FALLBACKS.split(",") if m.strip()]))
+# Google eski modellarni vaqti-vaqti bilan o'chirib qo'yadi, shuning uchun ro'yxatni
+# kalitingiz uchun hozir mavjud modellardan avtomatik tuzamiz.
+_models: list[str] | None = None
+_SKIP = ("image", "tts", "audio", "live", "embedding", "vision", "robotics", "computer-use")
+
+
+def _version(name: str) -> float:
+    m = re.search(r"gemini-(\d+(?:\.\d+)?)", name)
+    return float(m.group(1)) if m else 0.0
+
+
+def _discover() -> list[str]:
+    try:
+        found = []
+        for m in _get_client().models.list():
+            name = (getattr(m, "name", "") or "").replace("models/", "")
+            actions = getattr(m, "supported_actions", None) or []
+            if actions and "generateContent" not in actions:
+                continue
+            if "gemini" not in name or "flash" not in name or any(k in name for k in _SKIP):
+                continue
+            found.append(name)
+        # yangi versiyalar oldin; barqaror (preview emas) modellar oldin
+        found.sort(key=lambda n: (-_version(n), "preview" in n or "exp" in n, "lite" in n, n))
+        print(f"  Mavjud Gemini matn modellari: {', '.join(found[:8])}")
+        return found
+    except Exception as e:
+        print(f"  Modellar ro'yxatini olib bo'lmadi: {str(e)[:150]}")
+        return []
+
+
+def _ensure_models() -> list[str]:
+    global _models
+    if _models is None:
+        user = [config.TEXT_MODEL] if config.TEXT_MODEL else []
+        extra = [m.strip() for m in config.TEXT_MODEL_FALLBACKS.split(",") if m.strip()]
+        _models = list(dict.fromkeys(user + _discover() + extra))
+    return _models
 
 
 def text(prompt: str, system: str | None = None, max_tokens: int = 8192) -> str:
