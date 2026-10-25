@@ -22,6 +22,9 @@ GEMINI_API_KEY = lambda: env("GEMINI_API_KEY", required=True)
 # ElevenLabs ixtiyoriy: kalit bo'lmasa, bepul Edge ovozi ishlatiladi
 ELEVENLABS_API_KEY = lambda: env("ELEVENLABS_API_KEY")
 ELEVENLABS_VOICE_ID = lambda: env("ELEVENLABS_VOICE_ID")
+# Pexels ixtiyoriy (bepul): bo'lsa, rasmlar o'rniga haqiqiy stok videolar qo'yiladi
+PEXELS_API_KEY = lambda: env("PEXELS_API_KEY")
+PIXABAY_API_KEY = lambda: env("PIXABAY_API_KEY")   # Pexels o'rniga yoki qo'shimcha
 TELEGRAM_BOT_TOKEN = lambda: env("TELEGRAM_BOT_TOKEN", required=True)
 TELEGRAM_ADMIN_ID = lambda: env("TELEGRAM_ADMIN_ID", required=True)
 YT_CLIENT_ID = lambda: env("YT_CLIENT_ID", required=True)
@@ -29,7 +32,7 @@ YT_CLIENT_SECRET = lambda: env("YT_CLIENT_SECRET", required=True)
 YT_REFRESH_TOKEN = lambda: env("YT_REFRESH_TOKEN", required=True)
 
 # --- Modellar (GitHub Variables orqali o'zgartirsa bo'ladi) ---
-TEXT_MODEL = env("TEXT_MODEL", "gemini-3.8-flash")   # bepul tarifda ishlaydi
+TEXT_MODEL = env("TEXT_MODEL", "gemini-2.5-flash")   # bepul tarifda ishlaydi
 GEMINI_IMAGE_MODEL = env("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
 ELEVENLABS_MODEL = env("ELEVENLABS_MODEL", "eleven_v3")
 # Ovoz: "auto" (ElevenLabs kaliti bo'lsa u, bo'lmasa Edge), "elevenlabs" yoki "edge"
@@ -44,6 +47,7 @@ TARGET_MINUTES_MAX = 12.5
 WORDS_MIN = 1000
 WORDS_MAX = 1450
 BLITZ_COUNT = 7
+SCENE_SECONDS = 11.0    # bitta sahnaning taxminiy uzunligi (har bir bo'limda bir nechta sahna)
 VIDEO_W, VIDEO_H = 1920, 1080
 FPS = 25
 CHANNEL_NAME = "UzBooks"
