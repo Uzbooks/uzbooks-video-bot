@@ -41,13 +41,14 @@ def build_video(book_path: Path, note: str, work: Path, upload: bool, notify: bo
 
     sections = script["sections"]
 
+    # 3. Ovoz (har bir gap alohida — subtitrlar aniq tushishi uchun)
+    log(f"🎙 Ovoz yozilmoqda ({tts.provider()})...")
     durations, all_cues = [], []
     for i, s in enumerate(sections):
-    d = tts.synthesize_section(s["narration"], work / f"audio_{i}.mp3")
-    durations.append(d)
-    all_cues.append([])
-total_sec = sum(durations)
-
+        d, cues = tts.synthesize_with_cues(s["narration"], work / f"audio_{i}.mp3")
+        durations.append(d)
+        all_cues.append(cues)
+    total_sec = sum(durations)
 
     # 4. Muqova
     thumb_raw, _ = images.make(script["thumbnail_prompt"], work / "thumb_raw.jpg", seed=99)
