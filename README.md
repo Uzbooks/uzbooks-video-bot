@@ -5,9 +5,11 @@ quyidagilarni o'zi bajaradi:
 
 1. Kitobni o'qiydi va konspekt qiladi (Gemini, bepul).
 2. 7 blitzdan iborat, taxminan 10 daqiqalik o'zbekcha ssenariy yozadi (Gemini, bepul).
-3. Har bir bo'lim uchun rasm tayyorlaydi:
-   - Google'da billing ulangan bo'lsa, rasmni Gemini (Nano Banana) yaratadi.
-   - Billing bo'lmasa, tizim o'zi bepul dizayn-kartochka chizadi.
+3. Videoni montaj qiladi. Har bir bo'lim 9 soniyalik bir nechta sahnadan iborat:
+   - **Pexels** kaliti bo'lsa (bepul), har bir sahnaga mavzuga mos **haqiqiy stok video** qo'yiladi.
+   - Bo'lmasa, harakatlanuvchi rasm qo'yiladi (Gemini rasmi yoki bepul dizayn-kartochka).
+   - Ustidan ovozga aniq mos **subtitrlar**, har bir blitz boshida katta sarlavha, yuqorida bo'lim nomi
+     va pastda progress-bar chiqadi.
 4. Ovoz yozadi:
    - Bepul variant: Microsoft Edge'ning o'zbekcha ovozi.
    - Agar kalitni qo'shsangiz: ElevenLabs.
@@ -26,7 +28,8 @@ Siz videoni ko'rib chiqasiz va YouTube Studio'da **Publish / Schedule** tugmasin
 | Qism | Bepul variant | Pullik variant (ixtiyoriy) |
 |---|---|---|
 | Kitob o'qish, ssenariy, sifat nazorati | **Gemini 2.5 Flash, bepul tarif** | — |
-| Rasmlar | **Dizayn-kartochkalar** (avtomatik) | Gemini Nano Banana, rasm boshiga bir necha sent (billing kerak) |
+| Video sahnalar | **Pexels stok videolari** (bepul kalit) | — |
+| Rasmlar (Pexels topmasa) | **Dizayn-kartochkalar** (avtomatik) | Gemini Nano Banana, rasm boshiga bir necha sent (billing kerak) |
 | Ovoz | **Edge TTS** (`uz-UZ-SardorNeural`) | ElevenLabs Starter, oyiga taxminan 5 $ |
 | Server | **GitHub Actions**, private repo uchun oyiga 2000 daqiqa bepul | — |
 | YouTube'ga yuklash | **Bepul** | — |
@@ -68,6 +71,23 @@ repozitoriyda `.github/workflows/uzbooks.yml` fayli borligini tekshiring. Bo'lma
 ### 3-qadam. Gemini kaliti
 https://aistudio.google.com/apikey sahifasida **Create API key** tugmasini bosing.
 
+### 3.1-qadam. Stok video kaliti (bepul, tavsiya etiladi — videoni "jonli" qiladi)
+Ikkalasidan bittasi yetarli. Pexels hozir yangi kalit berishni vaqtincha to'xtatgan bo'lsa, Pixabay'dan oling.
+
+**Pixabay:**
+1. https://pixabay.com/accounts/register/ da ro'yxatdan o'ting.
+2. https://pixabay.com/api/docs/ sahifasini oching. Kirgan bo'lsangiz, kalitingiz sahifada
+   "**Your API key:**" yonida yashil rangda ko'rinadi.
+3. GitHub Secrets'ga `PIXABAY_API_KEY` nomi bilan qo'ying.
+
+**Pexels:**
+1. https://www.pexels.com/api/ sahifasini oching.
+2. Ro'yxatdan o'ting va **Your API Key** tugmasini bosing.
+3. Formani to'ldiring (masalan, "YouTube book summary videos") va kalitni oling.
+
+Pexels videolari bepul va tijoriy maqsadda ham ishlatish mumkin. Tizim har bir video tavsifiga
+Pexels va mualliflar nomini avtomatik yozib qo'yadi.
+
 ### 4-qadam. Kalitlarni GitHub'ga qo'yish
 Repozitoriyda **Settings → Secrets and variables → Actions → New repository secret** ni bosing.
 Har bir kalitni alohida qo'shing. Nomlarni harfma-harf aynan shunday yozing.
@@ -85,6 +105,7 @@ Har bir kalitni alohida qo'shing. Nomlarni harfma-harf aynan shunday yozing.
 | Name | Nima uchun |
 |---|---|
 | `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN` | YouTube'ga avtomatik yuklash (5-qadam) |
+| `PIXABAY_API_KEY` yoki `PEXELS_API_KEY` | **tavsiya etiladi:** bepul stok videolar (bo'lmasa video faqat rasmlardan iborat bo'ladi) |
 | `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID` | ElevenLabs ovozi (pullik tarif tavsiya etiladi) |
 
 ⚠️ Kalitlarni hech qachon chatga, kodga yoki ochiq joyga yozmang. Ular faqat GitHub Secrets'da turishi kerak.
