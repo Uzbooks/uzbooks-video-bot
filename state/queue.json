@@ -45,10 +45,10 @@
       "file_id": "BQACAgQAAxkBAAM0at3neJwt2ZoVhH0hCpxOU-GzWOMAAmkeAAJMd-hS8HI8-y7rV1M9BA",
       "file_name": "Napoleon_Hill_Oyla_va_Boy_Bol_senariy.pdf",
       "note": "",
-      "status": "failed_retry",
+      "status": "failed",
       "added": "2026-10-25 11:28",
-      "tries": 1,
-      "error": "Gemini matn modeli javob bermadi: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+      "tries": 2,
+      "error": "Gemini matn modeli javob bermadi: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, he"
     }
   ]
 }
