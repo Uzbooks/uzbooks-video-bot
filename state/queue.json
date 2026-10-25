@@ -35,10 +35,10 @@
       "file_id": "BQACAgQAAxkBAAMpat3ONsv329CJMIxipM3zw8xdWwQAAj8eAAJMd-hSjJaLSOFbJVg9BA",
       "file_name": "Napoleon_Hill_Oyla_va_Boy_Bol_senariy.pdf",
       "note": "",
-      "status": "failed_retry",
+      "status": "failed",
       "added": "2026-10-25 09:40",
-      "tries": 1,
-      "error": "Gemini matn modeli javob bermadi: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API ("
+      "tries": 2,
+      "error": "module 'src.tts' has no attribute 'synthesize_with_cues'"
     }
   ]
 }
