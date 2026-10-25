@@ -1,5 +1,5 @@
 {
-  "offset": 871369249,
+  "offset": 871369252,
   "books": [
     {
       "id": "b1792697310_0",
@@ -39,6 +39,16 @@
       "added": "2026-10-25 09:40",
       "tries": 2,
       "error": "module 'src.tts' has no attribute 'synthesize_with_cues'"
+    },
+    {
+      "id": "b1792927703_4",
+      "file_id": "BQACAgQAAxkBAAM0at3neJwt2ZoVhH0hCpxOU-GzWOMAAmkeAAJMd-hS8HI8-y7rV1M9BA",
+      "file_name": "Napoleon_Hill_Oyla_va_Boy_Bol_senariy.pdf",
+      "note": "",
+      "status": "failed_retry",
+      "added": "2026-10-25 11:28",
+      "tries": 1,
+      "error": "Gemini matn modeli javob bermadi: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
     }
   ]
 }
