@@ -36,7 +36,7 @@ def _normalize(text: str) -> str:
 
 
 def _tts(text: str, dest: Path) -> None:
-    body = {"text": text, "model_id": config.ELEVENLABS_MODEL}
+    body = {"text": text, "model_id": config.ELEVENLABS_MODEL, "language_code": "uz"}
     for attempt in range(4):
         r = requests.post(URL.format(voice=config.ELEVENLABS_VOICE_ID()),
                           headers={"xi-api-key": config.ELEVENLABS_API_KEY(),
@@ -97,3 +97,40 @@ def synthesize_section(text: str, dest: Path) -> float:
                     "-i", str(lst), "-af", "apad=pad_dur=0.6", "-ar", "44100", "-ac", "2",
                     "-c:a", "libmp3lame", "-b:a", "192k", str(dest)], check=True)
     return duration(dest)
+
+
+GAP = 0.18      # gaplar orasidagi pauza (soniya)
+END_PAD = 0.6   # bo'lim oxiridagi pauza
+
+
+def sentences(text: str) -> list[str]:
+    parts = re.split(r"(?<=[.!?…])\s+", text.strip())
+    return [p.strip() for p in parts if p.strip()]
+
+
+def synthesize_with_cues(text: str, dest: Path) -> tuple[float, list[tuple[float, float, str]]]:
+    """Har bir gapni alohida ovozga aylantiradi, shunda subtitr vaqtlari aniq bo'ladi.
+    (umumiy davomiylik, [(boshlanish, tugash, gap matni), ...]) qaytaradi."""
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    engine = _tts if provider() == "elevenlabs" else _edge
+    silence = dest.with_name(f"{dest.stem}_gap.mp3")
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i",
+                    f"anullsrc=r=44100:cl=stereo", "-t", str(GAP), "-c:a", "libmp3lame",
+                    "-b:a", "192k", str(silence)], check=True)
+    pieces, cues, t = [], [], 0.0
+    for i, sent in enumerate(sentences(text)):
+        raw = dest.with_name(f"{dest.stem}_s{i:03d}_raw.mp3")
+        engine(_normalize(sent), raw)
+        p = dest.with_name(f"{dest.stem}_s{i:03d}.mp3")  # bir xil formatga keltiramiz
+        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(raw), "-ar", "44100",
+                        "-ac", "2", "-c:a", "libmp3lame", "-b:a", "192k", str(p)], check=True)
+        d = duration(p)
+        cues.append((t, t + d, sent))
+        pieces += [p, silence]
+        t += d + GAP
+    lst = dest.with_suffix(".txt")
+    lst.write_text("".join(f"file '{p.resolve()}'\n" for p in pieces))
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
+                    "-i", str(lst), "-af", f"apad=pad_dur={END_PAD}", "-ar", "44100", "-ac", "2",
+                    "-c:a", "libmp3lame", "-b:a", "192k", str(dest)], check=True)
+    return duration(dest), cues
