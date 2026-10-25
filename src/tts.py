@@ -35,9 +35,15 @@ def _normalize(text: str) -> str:
     return text.replace("ʻ", "'").replace("ʼ", "'").replace("‘", "'").replace("’", "'")
 
 
+_send_lang = True  # API language_code ni rad etsa, o'chirib qo'yamiz (model tilni o'zi aniqlaydi)
+
+
 def _tts(text: str, dest: Path) -> None:
-    body = {"text": text, "model_id": config.ELEVENLABS_MODEL, "language_code": "uz"}
-    for attempt in range(4):
+    global _send_lang
+    for attempt in range(5):
+        body = {"text": text, "model_id": config.ELEVENLABS_MODEL}
+        if _send_lang:
+            body["language_code"] = "uz"
         r = requests.post(URL.format(voice=config.ELEVENLABS_VOICE_ID()),
                           headers={"xi-api-key": config.ELEVENLABS_API_KEY(),
                                    "Content-Type": "application/json"},
@@ -45,6 +51,10 @@ def _tts(text: str, dest: Path) -> None:
         if r.status_code == 200:
             dest.write_bytes(r.content)
             return
+        if r.status_code == 400 and _send_lang and "language_code" in r.text:
+            print("  ElevenLabs language_code='uz' ni qabul qilmadi, tilni avtomatik aniqlashga o'tamiz")
+            _send_lang = False
+            continue
         if r.status_code in (429, 500, 502, 503):
             time.sleep(15 * (attempt + 1))
             continue
