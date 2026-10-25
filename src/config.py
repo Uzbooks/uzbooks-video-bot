@@ -32,7 +32,9 @@ YT_CLIENT_SECRET = lambda: env("YT_CLIENT_SECRET", required=True)
 YT_REFRESH_TOKEN = lambda: env("YT_REFRESH_TOKEN", required=True)
 
 # --- Modellar (GitHub Variables orqali o'zgartirsa bo'ladi) ---
-TEXT_MODEL = env("TEXT_MODEL", "gemini-3.8-flash")   # bepul tarifda ishlaydi
+TEXT_MODEL = env("TEXT_MODEL", "gemini-2.5-flash")   # bepul tarifda ishlaydi
+# Asosiy modelning kunlik bepul limiti tugasa, navbat bilan shular ishlatiladi
+TEXT_MODEL_FALLBACKS = env("TEXT_MODEL_FALLBACKS", "gemini-2.5-flash,gemini-2.5-flash-lite,gemini-2.0-flash")
 GEMINI_IMAGE_MODEL = env("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
 ELEVENLABS_MODEL = env("ELEVENLABS_MODEL", "eleven_v3")
 # Ovoz: "auto" (ElevenLabs kaliti bo'lsa u, bo'lmasa Edge), "elevenlabs" yoki "edge"
