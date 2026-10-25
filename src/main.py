@@ -13,7 +13,7 @@ import sys
 import traceback
 from pathlib import Path
 
-from . import book_reader, config, images, qa, script_writer, telegram_io, tts, video
+from . import book_reader, compose, config, images, qa, script_writer, stock, telegram_io, tts, video
 
 
 def build_video(book_path: Path, note: str, work: Path, upload: bool, notify: bool) -> dict:
@@ -39,33 +39,67 @@ def build_video(book_path: Path, note: str, work: Path, upload: bool, notify: bo
     script_writer.save(script, work / "script.json")
     script_ok = not formal and not review["critical"]
 
-    # 3. Rasmlar (Gemini; ishlamasa bepul dizayn-kartochkalar)
-    log("🎨 Rasmlar yaratilmoqda...")
     sections = script["sections"]
-    raw_imgs, gemini_used = [], []
+
+    # 3. Ovoz (har bir gap alohida — subtitrlar aniq tushishi uchun)
+    log(f"🎙 Ovoz yozilmoqda ({tts.provider()})...")
+    durations, all_cues = [], []
     for i, s in enumerate(sections):
-        num = int(s["id"].split("_")[1]) if s["id"].startswith("blitz_") else None
-        path, ok_ai = images.make(s["image_prompt"], work / f"img_{i}.jpg", seed=i, number=num)
-        raw_imgs.append(path)
-        gemini_used.append(ok_ai)
+        d, cues = tts.synthesize_with_cues(s["narration"], work / f"audio_{i}.mp3")
+        durations.append(d)
+        all_cues.append(cues)
+    total_sec = sum(durations)
+
+    # 4. Muqova
     thumb_raw, _ = images.make(script["thumbnail_prompt"], work / "thumb_raw.jpg", seed=99)
     thumb = video.make_thumbnail(thumb_raw, work / "thumbnail.jpg", script["thumbnail_text"])
 
-    # 4. Ovoz
-    log(f"🎙 Ovoz yozilmoqda ({tts.provider()})...")
-    durations = [tts.synthesize_section(s["narration"], work / f"audio_{i}.mp3")
-                 for i, s in enumerate(sections)]
-
-    # 5. Video yig'ish
-    log("🎬 Video yig'ilmoqda...")
-    segs = []
+    # 5. Sahnalar: stok video (Pexels) -> Gemini rasm -> bepul kartochka
+    log("🎬 Sahnalar va montaj...")
+    bar = compose.bar_png(work / "bar.png")
+    segs, offset, gemini_used, stock_count, scene_total = [], 0.0, [], 0, 0
     for i, s in enumerate(sections):
-        label = f"BLITZ {i}" if s["id"].startswith("blitz") else ""
-        frame = video.overlay_frame(raw_imgs[i], work / f"frame_{i}.jpg", label, s["heading"])
-        segs.append(video.render_segment(frame, work / f"audio_{i}.mp3", durations[i],
-                                         work / f"seg_{i}.mp4", zoom_in=i % 2 == 0))
+        sec_dir = work / f"sec_{i}"
+        sec_dir.mkdir(exist_ok=True)
+        dur = durations[i]
+        n = max(1, round(dur / config.SCENE_SECONDS))
+        queries = [q for q in (s.get("broll") or []) if isinstance(q, str) and q.strip()]
+        if not queries:
+            queries = [" ".join(s["image_prompt"].split()[:4])]
+        lengths = [dur / n] * n
+        fallback_img = None
+        parts = []
+        for k in range(n):
+            scene_total += 1
+            clip = stock.fetch(queries[k % len(queries)], sec_dir / f"stock_{k}.mp4")
+            if clip:
+                stock_count += 1
+                parts.append(compose.scene_from_video(clip, lengths[k], sec_dir / f"scene_{k}.mp4"))
+                continue
+            if fallback_img is None:
+                num = int(s["id"].split("_")[1]) if s["id"].startswith("blitz_") else None
+                fallback_img, ok_ai = images.make(s["image_prompt"], sec_dir / "img.jpg", seed=i, number=num)
+                gemini_used.append(ok_ai)
+            parts.append(compose.scene_from_image(fallback_img, lengths[k], sec_dir / f"scene_{k}.mp4", variant=i + k))
+        visual = compose.join_video(parts, sec_dir / "visual.mp4")
+
+        if s["id"].startswith("blitz_"):
+            label, big = f"BLITZ {s['id'].split('_')[1]}", f"BLITZ {s['id'].split('_')[1]}"
+        elif s["id"] == "kirish":
+            label, big = "", script["book_title"]
+        else:
+            label, big = "XULOSA", "XULOSA"
+        small = s["heading"] if s["id"] != "kirish" else script["author"]
+        header = compose.header_png(sec_dir / "header.png", label, s["heading"])
+        title = compose.title_card_png(sec_dir / "title.png", big, small)
+        ass = compose.write_ass(all_cues[i], sec_dir / "subs.ass")
+        segs.append(compose.render_section(visual, work / f"audio_{i}.mp3", dur, ass, header,
+                                           title, bar, offset, total_sec, work / f"seg_{i}.mp4"))
+        offset += dur
+        log(f"  {i+1}/{len(sections)} bo'lim tayyor ({n} sahna)")
     final = video.concat(segs, work / "video.mp4")
     total = tts.duration(final)
+    raw_imgs = [p for p in work.glob("sec_*/img.jpg")]
 
     # 6. Media sifat nazorati
     media_problems = qa.check_media(durations, total, raw_imgs)
@@ -74,6 +108,9 @@ def build_video(book_path: Path, note: str, work: Path, upload: bool, notify: bo
                    f"{video.chapters(script, durations)}\n\n"
                    f"📚 Kitob: {script['book_title']} — {script['author']}\n"
                    f"Bu video kitobning qisqacha mazmuni. To'liq tajriba uchun kitobni o'qing!\n\n"
+                   + (("🎥 Videolar: " + ", ".join(sorted(stock.sources)) + " — "
+                       + ", ".join(sorted(set(stock.credits.values()))[:15]) + "\n\n")
+                      if stock.credits else "")
                    + " ".join("#" + t.replace(" ", "") for t in script["tags"][:5]))
     (work / "description.txt").write_text(description, encoding="utf-8")
 
@@ -82,8 +119,10 @@ def build_video(book_path: Path, note: str, work: Path, upload: bool, notify: bo
               "minor": review.get("minor", []), "formal": formal,
               "media": media_problems, "video_id": None, "thumb_err": None,
               "voice": tts.provider(),
-              "images": "Gemini" if all(gemini_used) else
-                        ("bepul kartochka" if not any(gemini_used) else "aralash")}
+              "visuals": f"stok video {stock_count}/{scene_total} sahna"
+                         + ("" if stock_count == scene_total else
+                            (", qolgani Gemini rasm" if gemini_used and all(gemini_used)
+                             else ", qolgani bepul kartochka"))}
 
     ok = script_ok and not media_problems
     yt_ready = bool(config.env("YT_REFRESH_TOKEN"))
@@ -103,7 +142,7 @@ def build_video(book_path: Path, note: str, work: Path, upload: bool, notify: bo
 
 def report(r: dict, thumb: Path, work: Path, ok: bool) -> None:
     lines = [f"🎬 {r['title']}", f"⏱ {r['minutes']} daqiqa | ⭐ Sifat bahosi: {r['score']}/10",
-             f"🎙 Ovoz: {r['voice']} | 🎨 Rasmlar: {r['images']}"]
+             f"🎙 Ovoz: {r['voice']} | 🎥 Vizual: {r['visuals']}"]
     if r["video_id"]:
         lines += ["", "✅ YouTubega YOPIQ (private) holatda yuklandi.",
                   f"Ko'rib chiqing va chiqarish vaqtini belgilang:",
