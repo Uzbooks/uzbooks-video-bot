@@ -45,9 +45,9 @@ def build_video(book_path: Path, note: str, work: Path, upload: bool, notify: bo
     log(f"🎙 Ovoz yozilmoqda ({tts.provider()})...")
     durations, all_cues = [], []
     for i, s in enumerate(sections):
-        d, cues = tts.synthesize_with_cues(s["narration"], work / f"audio_{i}.mp3")
-        durations.append(d)
-        all_cues.append(cues)
+        d = tts.synthesize_section(s["narration"], work / f"audio_{i}.mp3")
+durations.append(d)
+all_cues.append([])
     total_sec = sum(durations)
 
     # 4. Muqova
