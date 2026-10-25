@@ -55,10 +55,10 @@
       "file_id": "BQACAgQAAxkBAAM-at4Hcu4t2R3wixhi9Ggr5Pls0PEAArwbAAJMd_BSVSYZJjCwRXU9BA",
       "file_name": "UzBooks_Oylang_va_boying_ssenariy.pdf",
       "note": "",
-      "status": "failed_retry",
+      "status": "failed",
       "added": "2026-10-25 13:44",
-      "tries": 1,
-      "error": "Barcha Gemini matn modellarining limiti tugadi. Oxirgi xato: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Inte"
+      "tries": 2,
+      "error": "ElevenLabs xatosi 400: {\"detail\":{\"type\":\"validation_error\",\"code\":\"invalid_parameters\",\"message\":\"Model 'eleven_v3' does not support language_code 'uz'.\",\"status\":\"unsupported_language\",\"request_id\":\"09a0be93cb3effd31c2096b95873ae0a\",\"param\":\"language_code\"}}"
     }
   ]
 }
