@@ -1,5 +1,5 @@
 {
-  "offset": 871369252,
+  "offset": 871369254,
   "books": [
     {
       "id": "b1792697310_0",
@@ -49,6 +49,16 @@
       "added": "2026-10-25 11:28",
       "tries": 2,
       "error": "Gemini matn modeli javob bermadi: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, he"
+    },
+    {
+      "id": "b1792935870_5",
+      "file_id": "BQACAgQAAxkBAAM-at4Hcu4t2R3wixhi9Ggr5Pls0PEAArwbAAJMd_BSVSYZJjCwRXU9BA",
+      "file_name": "UzBooks_Oylang_va_boying_ssenariy.pdf",
+      "note": "",
+      "status": "failed_retry",
+      "added": "2026-10-25 13:44",
+      "tries": 1,
+      "error": "Barcha Gemini matn modellarining limiti tugadi. Oxirgi xato: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Inte"
     }
   ]
 }
