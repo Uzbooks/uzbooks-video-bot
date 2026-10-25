@@ -28,7 +28,7 @@ def build_video(book_path: Path, note: str, work: Path, upload: bool, notify: bo
 
     # 2. Ssenariy + sifat nazorati (2 martagacha qayta yozish)
     feedback, script, review, formal = "", None, {}, []
-    for attempt in range(3):
+    for attempt in range(2):
         log(f"✍️ Ssenariy yozilmoqda (urinish {attempt+1})...")
         script = script_writer.write_script(notes, note, feedback)
         formal = qa.check_script(script)
