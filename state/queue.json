@@ -83,10 +83,11 @@
       "file_id": "BQACAgQAAxkBAANfat-5Pgt9QQdmd-qvFd1nmaS_FtwAAgMhAALSGwFTxxeZrUhzLf09BA",
       "file_name": "Gemba_Kaizen_Qisqacha_Kengaytirilgan_Mazmun.pdf",
       "note": "",
-      "status": "failed_retry",
+      "status": "done",
       "added": "2026-10-26 20:34",
       "tries": 1,
-      "error": "[Errno 2] No such file or directory: '/home/runner/work/uzbooks-video-bot/uzbooks-video-bot/prompts/style.md'"
+      "error": "[Errno 2] No such file or directory: '/home/runner/work/uzbooks-video-bot/uzbooks-video-bot/prompts/style.md'",
+      "video_id": null
     }
   ]
 }
