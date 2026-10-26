@@ -63,11 +63,15 @@ jobs:
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           TEXT_MODEL: ${{ vars.TEXT_MODEL }}
+          TEXT_MODEL_FALLBACKS: ${{ vars.TEXT_MODEL_FALLBACKS }}
           GEMINI_IMAGE_MODEL: ${{ vars.GEMINI_IMAGE_MODEL }}
           ELEVENLABS_MODEL: ${{ vars.ELEVENLABS_MODEL }}
           TTS_PROVIDER: ${{ vars.TTS_PROVIDER }}
           EDGE_VOICE: ${{ vars.EDGE_VOICE }}
           IMAGE_PROVIDER: ${{ vars.IMAGE_PROVIDER }}
+          VISUAL_MODE: ${{ vars.VISUAL_MODE }}
+          MAX_AI_IMAGES: ${{ vars.MAX_AI_IMAGES }}
+          ELEVENLABS_STABILITY: ${{ vars.ELEVENLABS_STABILITY }}
         run: python -m src.main ${{ steps.task.outputs.task }}
 
       - name: Navbat holatini saqlash
