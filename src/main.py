@@ -13,35 +13,40 @@ import sys
 import traceback
 from pathlib import Path
 
-from . import book_reader, compose, config, images, qa, script_writer, stock, telegram_io, tts, video
+from . import (book_reader, compose, config, gitsync, images, qa, ready_script, script_writer, stock,
+               telegram_io, tts, video, visuals)
 
 
-def build_video(book_path: Path, note: str, work: Path, upload: bool, notify: bool) -> dict:
+def build_video(book_path: Path, note: str, work: Path, upload: bool, notify: bool,
+                file_name: str = "") -> dict:
     log = print
     work.mkdir(parents=True, exist_ok=True)
-
-    # 1. Kitobni o'qish va o'rganish
-    log("📖 Kitob o'qilmoqda...")
     text = book_reader.read_book(book_path)
-    notes = script_writer.study_book(text)
-    (work / "notes.md").write_text(notes, encoding="utf-8")
+    formal, review = [], {"score": None, "critical": [], "minor": []}
 
-    # 2. Ssenariy + sifat nazorati (2 martagacha qayta yozish)
-    feedback, script, review, formal = "", None, {}, []
-    for attempt in range(2):
-        log(f"✍️ Ssenariy yozilmoqda (urinish {attempt+1})...")
-        script = script_writer.write_script(notes, note, feedback)
-        formal = qa.check_script(script)
-        review = qa.review_script(script, notes)
-        if not formal and not review["critical"] and review["score"] >= 7:
-            break
-        feedback = "\n".join(formal + review["critical"] + review["minor"][:5])
+    if ready_script.looks_like_script(file_name or book_path.name, note):
+        # A) TAYYOR SSENARIY: matn so'zma-so'z o'qiladi, Gemini faqat bo'limlarga ajratadi
+        log("📜 Tayyor ssenariy rejimi: matn o'zgartirilmaydi")
+        script = ready_script.build(text, note)
+    else:
+        # B) KITOB: o'qish, konspekt, ssenariy yozish + sifat nazorati
+        log("📖 Kitob o'qilmoqda...")
+        notes = script_writer.study_book(text)
+        (work / "notes.md").write_text(notes, encoding="utf-8")
+        for attempt in range(2):
+            log(f"✍️ Ssenariy yozilmoqda (urinish {attempt+1})...")
+            script = script_writer.write_script(notes, note, "\n".join(
+                formal + review["critical"] + review["minor"][:5]))
+            formal = qa.check_script(script)
+            review = qa.review_script(script, notes)
+            if not formal and not review["critical"] and review["score"] >= 7:
+                break
+        script["mode"] = "kitobdan ssenariy"
     script_writer.save(script, work / "script.json")
     script_ok = not formal and not review["critical"]
-
     sections = script["sections"]
 
-    # 3. Ovoz (har bir gap alohida — subtitrlar aniq tushishi uchun)
+    # Ovoz: har bir bo'lim bitta butun matn sifatida (tabiiy intonatsiya), gap vaqtlari bilan
     log(f"🎙 Ovoz yozilmoqda ({tts.provider()})...")
     durations, all_cues = [], []
     for i, s in enumerate(sections):
@@ -50,59 +55,66 @@ def build_video(book_path: Path, note: str, work: Path, upload: bool, notify: bo
         all_cues.append(cues)
     total_sec = sum(durations)
 
-    # 4. Muqova
-    thumb_raw, _ = images.make(script["thumbnail_prompt"], work / "thumb_raw.jpg", seed=99)
+    # Sahnalar: gaplar bo'yicha ~10 soniyalik bo'laklar + har biriga mos kadr rejasi
+    sec_scenes = [visuals.group_scenes(c, d) for c, d in zip(all_cues, durations)]
+    flat = [sc for group in sec_scenes for sc in group]
+    log(f"🗺 Sahna rejasi tuzilmoqda ({len(flat)} sahna)...")
+    look = visuals.plan(script, flat)
+    visuals.save_plan(flat, work / "scenes.json")
+
+    # Muqova
+    thumb_raw, _ = images.make(script["thumbnail_prompt"], work / "thumb_raw.jpg", seed=99, look=look)
     thumb = video.make_thumbnail(thumb_raw, work / "thumbnail.jpg", script["thumbnail_text"])
 
-    # 5. Sahnalar: stok video (Pexels) -> Gemini rasm -> bepul kartochka
     log("🎬 Sahnalar va montaj...")
     bar = compose.bar_png(work / "bar.png")
-    segs, offset, gemini_used, stock_count, scene_total = [], 0.0, [], 0, 0
+    segs, offset = [], 0.0
+    counts = {"ai": 0, "stock": 0, "card": 0}
     for i, s in enumerate(sections):
         sec_dir = work / f"sec_{i}"
         sec_dir.mkdir(exist_ok=True)
-        dur = durations[i]
-        n = max(1, round(dur / config.SCENE_SECONDS))
-        queries = [q for q in (s.get("broll") or []) if isinstance(q, str) and q.strip()]
-        if not queries:
-            queries = [" ".join(s["image_prompt"].split()[:4])]
-        lengths = [dur / n] * n
-        fallback_img = None
         parts = []
-        for k in range(n):
-            scene_total += 1
-            clip = stock.fetch(queries[k % len(queries)], sec_dir / f"stock_{k}.mp4")
+        for k, sc in enumerate(sec_scenes[i]):
+            clip = None
+            if config.VISUAL_MODE == "stock" and sc.get("query"):
+                clip = stock.fetch(sc["query"], sec_dir / f"stock_{k}.mp4")
             if clip:
-                stock_count += 1
-                parts.append(compose.scene_from_video(clip, lengths[k], sec_dir / f"scene_{k}.mp4"))
+                counts["stock"] += 1
+                parts.append(compose.scene_from_video(clip, sc["len"], sec_dir / f"scene_{k}.mp4"))
                 continue
-            if fallback_img is None:
-                num = int(s["id"].split("_")[1]) if s["id"].startswith("blitz_") else None
-                fallback_img, ok_ai = images.make(s["image_prompt"], sec_dir / "img.jpg", seed=i, number=num)
-                gemini_used.append(ok_ai)
-            parts.append(compose.scene_from_image(fallback_img, lengths[k], sec_dir / f"scene_{k}.mp4", variant=i + k))
+            img, ok_ai = images.make(sc.get("prompt", ""), sec_dir / f"img_{k}.jpg",
+                                     seed=i * 100 + k, look=look)
+            if not ok_ai and config.VISUAL_MODE != "stock" and sc.get("query"):
+                clip = stock.fetch(sc["query"], sec_dir / f"stock_{k}.mp4")   # AI rasm bo'lmasa — stok
+                if clip:
+                    counts["stock"] += 1
+                    parts.append(compose.scene_from_video(clip, sc["len"], sec_dir / f"scene_{k}.mp4"))
+                    continue
+            counts["ai" if ok_ai else "card"] += 1
+            parts.append(compose.scene_from_image(img, sc["len"], sec_dir / f"scene_{k}.mp4",
+                                                  variant=i + k))
         visual = compose.join_video(parts, sec_dir / "visual.mp4")
 
-        if s["id"].startswith("blitz_"):
-            label, big = f"BLITZ {s['id'].split('_')[1]}", f"BLITZ {s['id'].split('_')[1]}"
-        elif s["id"] == "kirish":
-            label, big = "", script["book_title"]
+        if i == 0:
+            big, small = script["book_title"], script.get("author", "")
         else:
-            label, big = "XULOSA", "XULOSA"
-        small = s["heading"] if s["id"] != "kirish" else script["author"]
-        header = compose.header_png(sec_dir / "header.png", label, s["heading"])
+            big, small = s["heading"], ""
+        header = compose.header_png(sec_dir / "header.png", "", s["heading"] if i else script["book_title"])
         title = compose.title_card_png(sec_dir / "title.png", big, small)
         ass = compose.write_ass(all_cues[i], sec_dir / "subs.ass")
-        segs.append(compose.render_section(visual, work / f"audio_{i}.mp3", dur, ass, header,
+        segs.append(compose.render_section(visual, work / f"audio_{i}.mp3", durations[i], ass, header,
                                            title, bar, offset, total_sec, work / f"seg_{i}.mp4"))
-        offset += dur
-        log(f"  {i+1}/{len(sections)} bo'lim tayyor ({n} sahna)")
+        offset += durations[i]
+        log(f"  {i+1}/{len(sections)} bo'lim tayyor ({len(parts)} sahna)")
     final = video.concat(segs, work / "video.mp4")
     total = tts.duration(final)
-    raw_imgs = [p for p in work.glob("sec_*/img.jpg")]
+    raw_imgs = [p for p in work.glob("sec_*/img_*.jpg")]
 
     # 6. Media sifat nazorati
     media_problems = qa.check_media(durations, total, raw_imgs)
+    if script.get("mode", "").startswith("tayyor"):
+        # tayyor ssenariyda uzunlik sizning matningizga bog'liq — bu to'xtatuvchi xato emas
+        media_problems = [p for p in media_problems if "davomiyligi" not in p and "qisqa" not in p]
 
     description = (f"{script['description']}\n\n⏱ Bo'limlar:\n"
                    f"{video.chapters(script, durations)}\n\n"
@@ -119,10 +131,10 @@ def build_video(book_path: Path, note: str, work: Path, upload: bool, notify: bo
               "minor": review.get("minor", []), "formal": formal,
               "media": media_problems, "video_id": None, "thumb_err": None,
               "voice": tts.provider(),
-              "visuals": f"stok video {stock_count}/{scene_total} sahna"
-                         + ("" if stock_count == scene_total else
-                            (", qolgani Gemini rasm" if gemini_used and all(gemini_used)
-                             else ", qolgani bepul kartochka"))}
+              "mode": script.get("mode", ""),
+              "visuals": f"AI rasm {counts['ai']}, stok video {counts['stock']}, "
+                         f"oddiy fon {counts['card']}"
+                         + (f" (AI rasm xatosi: {images.last_error})" if images.last_error else "")}
 
     ok = script_ok and not media_problems
     yt_ready = bool(config.env("YT_REFRESH_TOKEN"))
@@ -141,7 +153,9 @@ def build_video(book_path: Path, note: str, work: Path, upload: bool, notify: bo
 
 
 def report(r: dict, thumb: Path, work: Path, ok: bool) -> None:
-    lines = [f"🎬 {r['title']}", f"⏱ {r['minutes']} daqiqa | ⭐ Sifat bahosi: {r['score']}/10",
+    lines = [f"🎬 {r['title']}", f"⏱ {r['minutes']} daqiqa"
+             + (f" | ⭐ Sifat bahosi: {r['score']}/10" if r.get('score') is not None else ""),
+             f"📜 Rejim: {r.get('mode', '')}",
              f"🎙 Ovoz: {r['voice']} | 🎥 Vizual: {r['visuals']}"]
     if r["video_id"]:
         lines += ["", "✅ YouTubega YOPIQ (private) holatda yuklandi.",
@@ -154,7 +168,7 @@ def report(r: dict, thumb: Path, work: Path, ok: bool) -> None:
     if r.get("no_youtube") or not r["video_id"]:
         run = run_url()
         if run:
-            lines += ["", "📥 Videoni shu yerdan yuklab oling (Artifacts bo'limi, 7 kun saqlanadi):", run]
+            lines += ["", "📥 To'liq sifatli (1080p) asl fayl — GitHub Artifacts, 7 kun saqlanadi:", run]
         if r.get("no_youtube"):
             lines.append("ℹ️ YouTube hali ulanmagan (YT_* kalitlar yo'q), shuning uchun yuklanmadi.")
     probs = r["formal"] + r["critical"] + r["media"]
@@ -165,6 +179,16 @@ def report(r: dict, thumb: Path, work: Path, ok: bool) -> None:
     msg = "\n".join(lines)
     telegram_io.send_photo(thumb, r["title"])
     telegram_io.send(msg)
+    # Videoning o'zi — Telegram'da to'g'ridan-to'g'ri ko'rish/yuklab olish uchun
+    video_file = work / "video.mp4"
+    if video_file.exists():
+        try:
+            parts = telegram_io.telegram_versions(video_file)
+            for i, p in enumerate(parts, 1):
+                cap = r["title"] + (f" — {i}/{len(parts)}-qism" if len(parts) > 1 else "")
+                telegram_io.send_video(p, cap)
+        except Exception as e:
+            telegram_io.send(f"⚠️ Videoni Telegramga yuborib bo'lmadi: {str(e)[:300]}")
     telegram_io.send_document(work / "script.json", "Ssenariy")
 
 
@@ -176,43 +200,71 @@ def run_url() -> str:
 
 
 def produce_from_queue(upload: bool) -> int:
-    telegram_io.collect()
-    q = telegram_io.load_queue()
-    pending = telegram_io.pending_books(q)
-    if not pending:
-        telegram_io.send("📭 Navbatda kitob yo'q — bugun video chiqmaydi. "
-                         "Botga yangi kitob yuboring.")
-        return 0
-    book = pending[0]
-    book["status"] = "processing"
-    telegram_io.save_queue(q)
-    work = config.WORK / book["id"]
-    try:
-        telegram_io.send(f"⚙️ «{book['file_name']}» bo'yicha video tayyorlanmoqda "
-                         f"(taxminan 20–30 daqiqa)...")
-        path = telegram_io.download(book["file_id"], work / ("book" + Path(book["file_name"]).suffix.lower()))
-        res = build_video(path, book.get("note", ""), work, upload=upload, notify=True)
-        book["status"] = "done" if (res["video_id"] or res.get("no_youtube") or not upload) else "needs_review"
-        book["video_id"] = res["video_id"]
-    except Exception as e:
-        book["status"] = "failed" if book.get("tries", 0) >= 1 else "failed_retry"
-        book["tries"] = book.get("tries", 0) + 1
-        book["error"] = str(e)[:300]
-        telegram_io.send(f"❌ «{book['file_name']}»: xatolik yuz berdi.\n{str(e)[:800]}")
-        traceback.print_exc()
-        return 1
-    finally:
-        telegram_io.save_queue(q)
-    return 0
+    """Navbatdagi BARCHA kitoblarni ketma-ket ishlaydi. Ish davomida bot yangi kitob qo'shsa,
+    u ham shu ishning o'zida navbat bilan olinadi."""
+    import os
+    import time as _t
+    t0 = _t.time()
+    if os.environ.get("USE_LISTENER", "").lower() != "true":
+        try:
+            telegram_io.collect()
+        except Exception as e:
+            print(f"collect o'tkazib yuborildi: {e}")
+        gitsync.push_local("navbat yangilandi")
+
+    def reset_stale(q):   # bir vaqtda faqat bitta tayyorlash ishi yuradi — "processing" qolgani uzilgan ish
+        for b in q["books"]:
+            if b.get("status") == "processing":
+                b["status"] = "failed_retry"
+    q = gitsync.update(reset_stale, "uzilib qolgan ishlar qayta navbatga")
+    rc, tried = 0, set()
+    while _t.time() - t0 < 4.5 * 3600:
+        q = gitsync.latest()
+        pend = [b for b in telegram_io.pending_books(q) if b["id"] not in tried]
+        if not pend:
+            break
+        book_id = pend[0]["id"]
+        tried.add(book_id)
+
+        def set_status(status, **extra):
+            def fn(qq):
+                for b in qq["books"]:
+                    if b["id"] == book_id:
+                        b["status"] = status
+                        b.update(extra)
+            return gitsync.update(fn, f"{status}: {book_id}")
+
+        q = set_status("processing")
+        book = next(b for b in q["books"] if b["id"] == book_id)
+        work = config.WORK / book_id
+        try:
+            telegram_io.send(f"⚙️ «{book['file_name']}» bo'yicha video tayyorlanmoqda (taxminan 20–40 daqiqa)...")
+            path = telegram_io.download(book["file_id"], work / ("book" + Path(book["file_name"]).suffix.lower()))
+            res = build_video(path, book.get("note", ""), work, upload=upload, notify=True,
+                              file_name=book["file_name"])
+            set_status("done" if (res["video_id"] or res.get("no_youtube") or not upload) else "needs_review",
+                       video_id=res["video_id"])
+        except Exception as e:
+            tries = book.get("tries", 0) + 1
+            set_status("failed" if tries >= 2 else "failed_retry", tries=tries, error=str(e)[:300])
+            telegram_io.send(f"❌ «{book['file_name']}»: xatolik yuz berdi.\n{str(e)[:800]}")
+            traceback.print_exc()
+            rc = 1
+    return rc
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("command", choices=["collect", "produce"])
+    ap.add_argument("command", choices=["collect", "produce", "listen"])
+    ap.add_argument("--minutes", type=float, default=340)
     ap.add_argument("--file")
     ap.add_argument("--note", default="")
     ap.add_argument("--no-upload", action="store_true")
     a = ap.parse_args()
+    if a.command == "listen":
+        from . import listener
+        listener.run(a.minutes)
+        return 0
     if a.command == "collect":
         n = telegram_io.collect()
         print(f"Navbatga qo'shildi: {n}")
