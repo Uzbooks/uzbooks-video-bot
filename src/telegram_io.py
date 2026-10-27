@@ -65,8 +65,13 @@ def collect() -> int:
     """Botga kelgan yangi kitob fayllarini navbatga qo'shadi. Qo'shilganlar sonini qaytaradi."""
     q = load_queue()
     admin = str(config.TELEGRAM_ADMIN_ID())
-    updates = _call("getUpdates", offset=q["offset"], timeout=0,
-                    allowed_updates=["message"])
+    try:
+        updates = _call("getUpdates", offset=q["offset"], timeout=0, allowed_updates=["message"])
+    except RuntimeError as e:
+        if "409" in str(e) or "webhook" in str(e).lower():
+            print("Bot webhook (Cloudflare Worker) orqali ishlayapti — collect kerak emas.")
+            return 0
+        raise
     added = 0
     for u in updates:
         q["offset"] = u["update_id"] + 1
@@ -123,3 +128,59 @@ def download(file_id: str, dest: Path) -> Path:
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(r.content)
     return dest
+
+
+# ---------------- tayyor videoni Telegramga yuborish ----------------
+TG_LIMIT = 49 * 1024 * 1024   # Bot API orqali yuborish chegarasi ~50 MB
+
+
+def _probe(path: Path) -> tuple[float, int, int]:
+    import subprocess
+    out = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+                          "stream=width,height:format=duration", "-of", "default=nw=1", str(path)],
+                         capture_output=True, text=True).stdout
+    vals = dict(l.split("=", 1) for l in out.split() if "=" in l)
+    return float(vals.get("duration", 0)), int(vals.get("width", 0)), int(vals.get("height", 0))
+
+
+def telegram_versions(video: Path) -> list[Path]:
+    """Telegram'ga sig'adigan nusxa(lar): kerak bo'lsa 720p ga siqadi, baribir katta bo'lsa bo'laklarga bo'ladi."""
+    import math
+    import subprocess
+    if video.stat().st_size <= TG_LIMIT:
+        return [video]
+    dur, _, _ = _probe(video)
+    total_kbps = int(TG_LIMIT * 0.92 * 8 / 1024 / max(dur, 1))
+    v_kbps = max(350, total_kbps - 96)
+    small = video.with_name("video_telegram.mp4")
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(video), "-vf", "scale=-2:720",
+                    "-c:v", "libx264", "-preset", "veryfast", "-b:v", f"{v_kbps}k",
+                    "-maxrate", f"{int(v_kbps * 1.3)}k", "-bufsize", f"{v_kbps * 2}k",
+                    "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", str(small)], check=True)
+    if small.stat().st_size <= TG_LIMIT:
+        return [small]
+    n = math.ceil(small.stat().st_size / (TG_LIMIT * 0.9))
+    part_len = dur / n
+    parts = []
+    for i in range(n):
+        p = video.with_name(f"video_telegram_{i+1}.mp4")
+        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{i * part_len:.2f}", "-i", str(small),
+                        "-t", f"{part_len:.2f}", "-c", "copy", "-movflags", "+faststart", str(p)], check=True)
+        parts.append(p)
+    return parts
+
+
+def send_video(path: Path, caption: str = "") -> None:
+    dur, w, h = _probe(path)
+    with open(path, "rb") as f:
+        url = API.format(token=config.TELEGRAM_BOT_TOKEN(), method="sendVideo")
+        for attempt in range(3):
+            f.seek(0)
+            r = requests.post(url, data={"chat_id": config.TELEGRAM_ADMIN_ID(), "caption": caption[:1000],
+                                         "supports_streaming": "true", "duration": int(dur),
+                                         "width": w, "height": h},
+                              files={"video": (path.name, f, "video/mp4")}, timeout=900)
+            if r.ok and r.json().get("ok"):
+                return
+            time.sleep(10 * (attempt + 1))
+    raise RuntimeError(f"Videoni Telegramga yuborib bo'lmadi: {r.text[:200]}")
