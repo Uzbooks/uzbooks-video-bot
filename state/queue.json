@@ -1,5 +1,5 @@
 {
-  "offset": 871369262,
+  "offset": 871369265,
   "books": [
     {
       "id": "b1792697310_0",
@@ -88,6 +88,14 @@
       "tries": 1,
       "error": "[Errno 2] No such file or directory: '/home/runner/work/uzbooks-video-bot/uzbooks-video-bot/prompts/style.md'",
       "video_id": null
+    },
+    {
+      "id": "b1793086929_9",
+      "file_id": "BQACAgQAAxkBAANpauBMUc92fL9bW74ssIx7xsBC8l0AAkchAALSGwFTE98PNRzrZdU9BA",
+      "file_name": "Gemba_Kaizen_Qisqacha_Kengaytirilgan_Mazmun.pdf",
+      "note": "",
+      "status": "processing",
+      "added": "2026-10-27 07:42"
     }
   ]
 }
