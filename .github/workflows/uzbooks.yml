@@ -2,39 +2,51 @@ name: UzBooks
 
 on:
   schedule:
-    - cron: "7 * * * *"        # har soatda: Telegramdan yangi kitoblarni navbatga olish
-    - cron: "0 14 * * 1,3,5"   # dush/chor/juma 14:00 UTC (Germaniyada 15:00-16:00): video yasash
+    - cron: "13 */2 * * *"     # bot tinglovchisi to'xtab qolgan bo'lsa, qayta yoqadi (zaxira)
+    - cron: "0 14 * * *"       # navbatda qolib ketgan kitob bo'lsa, ishlab chiqadi (zaxira)
   workflow_dispatch:
     inputs:
       task:
-        description: "collect yoki produce"
-        default: "produce"
+        description: "listen (botni yoqish) yoki produce (video tayyorlash)"
+        default: "listen"
 
 permissions:
   contents: write
-
-concurrency:
-  group: uzbooks
-  cancel-in-progress: false
+  actions: write
 
 jobs:
-  run:
+  # ---------------- 1) Bot: doimiy tinglovchi (har ~6 soatda o'zini yangilaydi) ----------------
+  listen:
+    if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.task == 'listen') || github.event.schedule == '13 */2 * * *' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 355
+    concurrency:
+      group: uzbooks-listener
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q requests
+      - name: Botni tinglash
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
+          GEMINI_API_KEY: "unused"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python -m src.listener 340
 
-      - name: Vazifani aniqlash
-        id: task
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "task=${{ github.event.inputs.task }}" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "0 14 * * 1,3,5" ]; then
-            echo "task=produce" >> $GITHUB_OUTPUT
-          else
-            echo "task=collect" >> $GITHUB_OUTPUT
-          fi
-
+  # ---------------- 2) Video tayyorlash ----------------
+  produce:
+    if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.task == 'produce') || github.event.schedule == '0 14 * * *' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 320
+    concurrency:
+      group: uzbooks-produce
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -43,15 +55,15 @@ jobs:
       - name: Kutubxonalar
         run: |
           pip install -r requirements.txt
-          if [ "${{ steps.task.outputs.task }}" = "produce" ]; then
-            sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
-            mkdir -p fonts
-            curl -sL -o fonts/Montserrat-ExtraBold.ttf \
-              "https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-ExtraBold.ttf" || true
-          fi
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
+          mkdir -p fonts
+          curl -sL -o fonts/Montserrat-ExtraBold.ttf \
+            "https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-ExtraBold.ttf" || true
 
-      - name: Ishga tushirish
+      - name: Video tayyorlash
         env:
+          USE_LISTENER: "true"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
@@ -72,18 +84,10 @@ jobs:
           VISUAL_MODE: ${{ vars.VISUAL_MODE }}
           MAX_AI_IMAGES: ${{ vars.MAX_AI_IMAGES }}
           ELEVENLABS_STABILITY: ${{ vars.ELEVENLABS_STABILITY }}
-        run: python -m src.main ${{ steps.task.outputs.task }}
-
-      - name: Navbat holatini saqlash
-        if: always()
-        run: |
-          git config user.name "uzbooks-bot"
-          git config user.email "bot@users.noreply.github.com"
-          git add state/queue.json 2>/dev/null || true
-          git diff --cached --quiet || (git commit -m "navbat yangilandi" && git pull --rebase && git push)
+        run: python -m src.main produce
 
       - name: Natijalarni saqlash (7 kun)
-        if: steps.task.outputs.task == 'produce' && always()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: uzbooks-output
@@ -91,7 +95,7 @@ jobs:
             work/**/video.mp4
             work/**/thumbnail.jpg
             work/**/script.json
-            work/**/notes.md
+            work/**/scenes.json
             work/**/result.json
           retention-days: 7
           if-no-files-found: ignore
