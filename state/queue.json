@@ -1,5 +1,5 @@
 {
-  "offset": 871369265,
+  "offset": 871369266,
   "books": [
     {
       "id": "b1792697310_0",
@@ -96,6 +96,15 @@
       "note": "",
       "status": "processing",
       "added": "2026-10-27 07:42"
+    },
+    {
+      "id": "b1793135833_10",
+      "file_id": "BQACAgQAAxkBAAN0auEUk0lLDcHItPT-MSZRdgvepDkAAuUgAALaSghT-4W44-kBkrg9BA",
+      "file_name": "Gemba_Kaizen_Qisqacha_Kengaytirilgan_Mazmun.pdf",
+      "note": "",
+      "status": "needs_review",
+      "added": "2026-10-27 21:17",
+      "video_id": null
     }
   ]
 }
