@@ -95,19 +95,51 @@ def handle(msg: dict) -> None:
                          else "⚠️ Ishga tushirib bo'lmadi.")
 
 
+MY_RUN = os.environ.get("GITHUB_RUN_ID", "local")
+
+
+def _run_alive(run_id) -> bool:
+    """Boshqa bot nusxasi (GitHub run) hali ishlayaptimi?"""
+    repo, token = os.environ.get("GITHUB_REPOSITORY"), os.environ.get("GITHUB_TOKEN")
+    if not run_id or str(run_id) == MY_RUN or not repo or not token:
+        return False
+    try:
+        r = requests.get(f"https://api.github.com/repos/{repo}/actions/runs/{run_id}",
+                         headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
+                         timeout=30)
+        return r.ok and r.json().get("status") in ("in_progress", "queued", "waiting", "pending", "requested")
+    except Exception:
+        return False
+
+
+def _other_listener() -> bool:
+    return _run_alive(gitsync.latest().get("listener_run_id"))
+
+
 def run(minutes: float) -> None:
     deadline = time.time() + minutes * 60
+    if _other_listener():
+        print("Boshqa bot nusxasi allaqachon ishlayapti — bu nusxa darhol tugaydi.")
+        return
+    gitsync.update(lambda q: q.update(listener_run_id=MY_RUN), "bot: tinglovchi boshlandi")
     try:  # Cloudflare sinovidan qolgan webhook bo'lsa, o'chiramiz (aks holda getUpdates ishlamaydi)
         telegram_io._call("deleteWebhook", drop_pending_updates=False)
     except Exception as e:
         print(f"deleteWebhook: {e}")
     offset = gitsync.latest().get("offset", 0)
     print(f"Bot tinglanmoqda ({minutes:.0f} daqiqa)...")
+    conflicts = 0
     while time.time() < deadline:
         try:
             ups = telegram_io._call("getUpdates", offset=offset, timeout=50, allowed_updates=["message"])
+            conflicts = 0
         except Exception as e:
             print(f"getUpdates xatosi: {str(e)[:200]}")
+            if "409" in str(e) or "onflict" in str(e):
+                conflicts += 1
+                if conflicts > 3 and gitsync.latest().get("listener_run_id") != MY_RUN:
+                    print("Boshqa bot nusxasi ishlayapti — bu nusxa to'xtaydi.")
+                    return
             time.sleep(5)
             continue
         for u in ups:
@@ -123,7 +155,11 @@ def run(minutes: float) -> None:
         if ups:
             gitsync.update(lambda q: q.update(offset=max(q.get("offset", 0), offset)), "bot: offset")
     # vaqt tugadi — o'zimizni qayta ishga tushiramiz (navbatdagi ish shu tugashi bilan boshlanadi)
-    gitsync.update(lambda q: q.update(offset=max(q.get("offset", 0), offset)), "bot: offset")
+    def finish(q):
+        q.update(offset=max(q.get("offset", 0), offset))
+        if q.get("listener_run_id") == MY_RUN:
+            q["listener_run_id"] = None
+    gitsync.update(finish, "bot: offset")
     dispatch("listen")
 
 
