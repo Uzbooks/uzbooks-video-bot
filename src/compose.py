@@ -91,11 +91,12 @@ def title_card_png(dest: Path, big: str, small: str) -> Path:
     d.text((W // 2, H // 2 - 70), disp(big), font=fb, fill=GOLD + (255,), anchor="mm")
     fs = font(64)
     lines = _wrap(d, disp(small), fs, W * 0.75)[:2]
-    y = H // 2 + 50
+    line_y = H // 2 - 70 + int(size * 0.62) + 14
+    y = line_y + 28
     for ln in lines:
         d.text((W // 2, y), ln, font=fs, fill=WHITE, anchor="ma")
         y += 80
-    d.line([(W // 2 - 120, H // 2 + 25), (W // 2 + 120, H // 2 + 25)], fill=GOLD, width=5)
+    d.line([(W // 2 - 120, line_y), (W // 2 + 120, line_y)], fill=GOLD, width=5)
     img.save(dest)
     return dest
 

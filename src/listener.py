@@ -93,6 +93,27 @@ def handle(msg: dict) -> None:
     elif text == "/boshla":
         telegram_io.send("▶️ Tayyorlash ishga tushirildi." if dispatch("produce")
                          else "⚠️ Ishga tushirib bo'lmadi.")
+    elif text and not text.startswith("/"):
+        # Fayldan keyin alohida yozilgan izoh — navbatdagi oxirgi kitobga biriktiramiz
+        res = {}
+
+        def note(q):
+            pb = [b for b in q["books"] if b["status"] in ("queued", "failed_retry")]
+            if pb:
+                b = pb[-1]
+                b["note"] = (b.get("note", "") + " " + text).strip()
+                res["name"] = b["file_name"]
+            else:
+                run = [b for b in q["books"] if b["status"] == "processing"]
+                res["late"] = run[-1]["file_name"] if run else ""
+        gitsync.update(note, "izoh qo'shildi")
+        if res.get("name"):
+            telegram_io.send(f"📝 Izoh «{res['name']}» ga qo'shildi.")
+        elif res.get("late"):
+            telegram_io.send(f"ℹ️ «{res['late']}» allaqachon tayyorlanmoqda, izoh unga qo'shilmadi. "
+                             "Keyingi safar izohni faylning o'ziga (caption) yozing.")
+        else:
+            telegram_io.send("Kitob yoki ssenariy faylini yuboring. Yordam: /help")
 
 
 MY_RUN = os.environ.get("GITHUB_RUN_ID", "local")

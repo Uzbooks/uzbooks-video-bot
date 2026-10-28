@@ -10,6 +10,16 @@ WORK = ROOT / "work"          # vaqtinchalik fayllar (gitga tushmaydi)
 QUEUE_FILE = STATE / "queue.json"
 
 
+def prompt(name: str) -> str:
+    """prompts/ papkasidagi faylni o'qiydi; fayl yo'q bo'lsa, kod ichidagi zaxira matnni beradi."""
+    path = PROMPTS / name
+    if path.exists():
+        return path.read_text(encoding="utf-8")
+    from .default_prompts import DEFAULTS
+    print(f"  Ogohlantirish: prompts/{name} topilmadi, standart matn ishlatildi")
+    return DEFAULTS.get(name, "")
+
+
 def env(name: str, default: str | None = None, required: bool = False) -> str:
     val = os.environ.get(name) or default
     if required and not val:
@@ -43,6 +53,10 @@ TTS_PROVIDER = env("TTS_PROVIDER", "auto")
 EDGE_VOICE = env("EDGE_VOICE", "uz-UZ-SardorNeural")   # yoki uz-UZ-MadinaNeural
 # Rasm: "auto" (Gemini, ishlamasa bepul dizayn-kartochka), "gemini" yoki "cards"
 IMAGE_PROVIDER = env("IMAGE_PROVIDER", "auto")
+# Sahna vizuali: "images" — har bir sahnaga mazmunga mos AI rasm (tavsiya, Gemini billing kerak),
+# "stock" — avval Pixabay/Pexels stok video, topilmasa AI rasm
+VISUAL_MODE = env("VISUAL_MODE", "images")
+MAX_AI_IMAGES = int(env("MAX_AI_IMAGES", "70"))   # bitta videoga eng ko'p AI rasm (xarajat chegarasi)
 
 # --- Video talablari ---
 TARGET_MINUTES_MIN = 7.5
@@ -50,7 +64,7 @@ TARGET_MINUTES_MAX = 12.5
 WORDS_MIN = 1000
 WORDS_MAX = 1450
 BLITZ_COUNT = 7
-SCENE_SECONDS = 11.0    # bitta sahnaning taxminiy uzunligi (har bir bo'limda bir nechta sahna)
+SCENE_SECONDS = 10.0    # bitta sahnaning taxminiy uzunligi (har bir bo'limda bir nechta sahna)
 VIDEO_W, VIDEO_H = 1920, 1080
 FPS = 25
 CHANNEL_NAME = "UzBooks"

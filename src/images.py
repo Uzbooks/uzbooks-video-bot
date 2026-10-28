@@ -9,7 +9,7 @@ from . import config
 
 
 def _style() -> str:
-    return (config.PROMPTS / "image_style.txt").read_text(encoding="utf-8").strip()
+    return config.prompt("image_style.txt").strip()
 
 
 def fit_16x9(img: Image.Image) -> Image.Image:
@@ -23,33 +23,73 @@ def fit_16x9(img: Image.Image) -> Image.Image:
     return img.crop((left, top, left + W, top + H))
 
 
-def generate(prompt: str, dest: Path, retries: int = 3) -> Path:
-    from google import genai
-    from google.genai import types
+_img_models: list[str] | None = None
+_client = None
+used_model = ""
 
-    client = genai.Client(api_key=config.GEMINI_API_KEY())
-    full = f"{prompt}\n\n{_style()}"
-    last_err = None
-    for attempt in range(retries):
+
+def _get_client():
+    global _client
+    if _client is None:
+        from google import genai
+        _client = genai.Client(api_key=config.GEMINI_API_KEY())
+    return _client
+
+
+def _image_models() -> list[str]:
+    """Sozlangan model + kalitingiz uchun hozir mavjud Gemini rasm modellari (eskirganlari o'tkazib yuboriladi)."""
+    global _img_models
+    if _img_models is None:
+        found = []
         try:
+            for m in _get_client().models.list():
+                name = (getattr(m, "name", "") or "").replace("models/", "")
+                actions = getattr(m, "supported_actions", None) or []
+                if "gemini" in name and "image" in name and (not actions or "generateContent" in actions):
+                    found.append(name)
+            # avval arzon "flash" modellari, keyin "pro"
+            found.sort(key=lambda n: ("pro" in n, "preview" in n, n), reverse=False)
+        except Exception as e:
+            print(f"  Rasm modellari ro'yxatini olib bo'lmadi: {str(e)[:120]}")
+        _img_models = list(dict.fromkeys([config.GEMINI_IMAGE_MODEL] + found))
+    return _img_models
+
+
+def generate(prompt: str, dest: Path, retries: int = 3, look: str = "") -> Path:
+    from google.genai import types
+    global used_model
+
+    full = f"{prompt}\n\n{look}\n\n{_style()}".strip()
+    last_err = None
+    models = _image_models()
+    while models:
+        model = models[0]
+        for attempt in range(retries):
             try:
-                cfg = types.GenerateContentConfig(
-                    response_modalities=["IMAGE"],
-                    image_config=types.ImageConfig(aspect_ratio="16:9"))
-            except Exception:  # eski SDK versiyasi
-                cfg = types.GenerateContentConfig(response_modalities=["IMAGE"])
-            resp = client.models.generate_content(
-                model=config.GEMINI_IMAGE_MODEL, contents=full, config=cfg)
-            for part in resp.candidates[0].content.parts:
-                if getattr(part, "inline_data", None) and part.inline_data.data:
-                    img = Image.open(io.BytesIO(part.inline_data.data))
-                    dest.parent.mkdir(parents=True, exist_ok=True)
-                    fit_16x9(img).save(dest, quality=95)
-                    return dest
-            raise RuntimeError("Gemini rasm qaytarmadi")
-        except Exception as e:  # tarmoq / limit xatolari
-            last_err = e
-            time.sleep(10 * (attempt + 1))
+                try:
+                    cfg = types.GenerateContentConfig(
+                        response_modalities=["IMAGE"],
+                        image_config=types.ImageConfig(aspect_ratio="16:9"))
+                except Exception:  # eski SDK versiyasi
+                    cfg = types.GenerateContentConfig(response_modalities=["IMAGE"])
+                resp = _get_client().models.generate_content(model=model, contents=full, config=cfg)
+                for part in resp.candidates[0].content.parts:
+                    if getattr(part, "inline_data", None) and part.inline_data.data:
+                        img = Image.open(io.BytesIO(part.inline_data.data))
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        fit_16x9(img).save(dest, quality=95)
+                        used_model = model
+                        return dest
+                raise RuntimeError("Gemini rasm qaytarmadi")
+            except Exception as e:
+                last_err = e
+                msg = str(e)
+                if "NOT_FOUND" in msg or "404" in msg:
+                    break                                   # model yo'q — keyingisiga
+                if "billing" in msg.lower() or "free tier" in msg.lower() or "limit: 0" in msg:
+                    raise RuntimeError(f"Gemini rasm uchun billing kerak: {msg[:200]}")
+                time.sleep(15 * (attempt + 1))
+        models.pop(0)
     raise RuntimeError(f"Rasm yaratilmadi: {last_err}")
 
 
@@ -98,17 +138,24 @@ def card(seed: int, dest: Path, number: int | None = None) -> Path:
 _gemini_failed = False
 
 
-def make(prompt: str, dest: Path, seed: int, number: int | None = None) -> tuple[Path, bool]:
+ai_count = 0
+last_error = ""
+
+
+def make(prompt: str, dest: Path, seed: int, number: int | None = None, look: str = "") -> tuple[Path, bool]:
     """Sozlamaga qarab rasm yasaydi. (yo'l, gemini_ishladimi) qaytaradi."""
-    global _gemini_failed
+    global _gemini_failed, ai_count, last_error
     mode = config.IMAGE_PROVIDER
-    if mode == "cards" or (mode == "auto" and _gemini_failed):
+    if mode == "cards" or (mode == "auto" and _gemini_failed) or not prompt or ai_count >= config.MAX_AI_IMAGES:
         return card(seed, dest, number), False
     try:
-        return generate(prompt, dest, retries=3 if mode == "gemini" else 2), True
+        out = generate(prompt, dest, retries=3 if mode == "gemini" else 2, look=look)
+        ai_count += 1
+        return out, True
     except Exception as e:
         if mode == "gemini":
             raise
         print(f"  Gemini rasm ishlamadi, bepul kartochkaga o'tamiz: {str(e)[:200]}")
+        last_error = str(e)[:200]
         _gemini_failed = True
         return card(seed, dest, number), False

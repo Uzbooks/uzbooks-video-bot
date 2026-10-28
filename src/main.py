@@ -24,7 +24,7 @@ def build_video(book_path: Path, note: str, work: Path, upload: bool, notify: bo
     text = book_reader.read_book(book_path)
     formal, review = [], {"score": None, "critical": [], "minor": []}
 
-    if ready_script.looks_like_script(file_name or book_path.name, note):
+    if ready_script.looks_like_script(file_name or book_path.name, note, text):
         # A) TAYYOR SSENARIY: matn so'zma-so'z o'qiladi, Gemini faqat bo'limlarga ajratadi
         log("📜 Tayyor ssenariy rejimi: matn o'zgartirilmaydi")
         script = ready_script.build(text, note)

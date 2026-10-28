@@ -50,7 +50,7 @@ def study_book(book_text: str) -> str:
 
 
 def write_script(notes: str, note: str = "", feedback: str = "") -> dict:
-    style = (config.PROMPTS / "style.md").read_text(encoding="utf-8")
+    style = config.prompt("style.md")
     example_path = config.PROMPTS / "example_script.md"
     example = example_path.read_text(encoding="utf-8") if example_path.exists() else ""
     prompt = (

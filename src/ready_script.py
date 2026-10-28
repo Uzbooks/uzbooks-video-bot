@@ -38,10 +38,19 @@ SEGMENT_SCHEMA = """{
 }"""
 
 
-def looks_like_script(file_name: str, note: str) -> bool:
+BOOK_FORCE = ("qayta yoz", "kitob rejimi", "o'zing yoz", "oʻzing yoz")
+SCRIPT_MAX_WORDS = 3500      # 10 daqiqalik matn ~1200-1600 so'z; kitob esa 20 000+ so'z
+
+
+def looks_like_script(file_name: str, note: str, text: str = "") -> bool:
     s = f"{file_name} {note}".lower()
-    return any(k in s for k in ("ssenariy", "senariy", "scenario", "script", "tayyor matn",
-                                "o'zgartirmasdan", "oʻzgartirmasdan", "so'zma-so'z"))
+    if any(k in s for k in BOOK_FORCE):
+        return False
+    if any(k in s for k in ("ssenariy", "senariy", "scenario", "script", "tayyor matn", "sharh",
+                            "o'zgartirmasdan", "oʻzgartirmasdan", "so'zma-so'z")):
+        return True
+    # Qisqa matn (kitob emas) — bu tayyor ssenariy, so'zma-so'z o'qiladi
+    return bool(text) and len(text.split()) <= SCRIPT_MAX_WORDS
 
 
 def clean_text(raw: str) -> str:
