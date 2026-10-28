@@ -20,7 +20,9 @@ def merge(ours: dict, theirs: dict) -> dict:
             pass
         out.append(b)
     out += list(mine.values())                      # faqat bizda bo'lganlar (getUpdates orqali kelgan)
-    return {"offset": max(ours.get("offset", 0), theirs.get("offset", 0)), "books": out}
+    res = dict(theirs)                              # boshqa kalitlar (masalan listener_run_id) saqlanadi
+    res.update(offset=max(ours.get("offset", 0), theirs.get("offset", 0)), books=out)
+    return res
 
 
 if __name__ == "__main__":
