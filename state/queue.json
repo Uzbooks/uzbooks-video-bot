@@ -117,6 +117,14 @@
       "added": "2026-10-28 08:22",
       "tries": 2,
       "error": "make() got an unexpected keyword argument 'look'"
+    },
+    {
+      "id": "b1793225304_12",
+      "file_id": "BQACAgQAAxkBAAOWauJyWBon7T3pKQii7emKjtAZQXwAAvIgAALaShhTaCYgUky-lfA9BA",
+      "file_name": "uzbooks_vkusvill_kitob_sharhi.pdf",
+      "note": "",
+      "status": "queued",
+      "added": "2026-10-28 22:08"
     }
   ],
   "listener_run_id": "40773511439"
