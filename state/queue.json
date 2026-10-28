@@ -113,7 +113,7 @@
       "file_id": "BQACAgQAAxkBAAOFauGw0TybWUSvEfU4I1-3i9KMN5MAAvQgAALaShBTb4HmiZwWZGo9BA",
       "file_name": "uzbooks_vkusvill_kitob_sharhi.pdf",
       "note": "",
-      "status": "failed_retry",
+      "status": "processing",
       "added": "2026-10-28 08:22",
       "tries": 1,
       "error": "make() got an unexpected keyword argument 'look'"
