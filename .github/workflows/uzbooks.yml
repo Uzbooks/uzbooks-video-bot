@@ -2,7 +2,7 @@ name: UzBooks
 
 on:
   schedule:
-    - cron: "13 */2 * * *"     # bot tinglovchisi to'xtab qolgan bo'lsa, qayta yoqadi (zaxira)
+    - cron: "13 */3 * * *"     # bot to'xtab qolgan bo'lsa, qayta yoqadi (ishlayotgan bo'lsa, 1 daqiqada o'zi tugaydi)
     - cron: "0 14 * * *"       # navbatda qolib ketgan kitob bo'lsa, ishlab chiqadi (zaxira)
   workflow_dispatch:
     inputs:
@@ -17,12 +17,9 @@ permissions:
 jobs:
   # ---------------- 1) Bot: doimiy tinglovchi (har ~6 soatda o'zini yangilaydi) ----------------
   listen:
-    if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.task == 'listen') || github.event.schedule == '13 */2 * * *' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.task == 'listen') || github.event.schedule == '13 */3 * * *' }}
     runs-on: ubuntu-latest
     timeout-minutes: 355
-    concurrency:
-      group: uzbooks-listener
-      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
