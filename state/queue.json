@@ -94,7 +94,7 @@
       "file_id": "BQACAgQAAxkBAANpauBMUc92fL9bW74ssIx7xsBC8l0AAkchAALSGwFTE98PNRzrZdU9BA",
       "file_name": "Gemba_Kaizen_Qisqacha_Kengaytirilgan_Mazmun.pdf",
       "note": "",
-      "status": "failed_retry",
+      "status": "processing",
       "added": "2026-10-27 07:42",
       "tries": 1,
       "error": "make() got an unexpected keyword argument 'look'"
