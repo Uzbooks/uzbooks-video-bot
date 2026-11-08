@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       task:
-        description: "listen (botni yoqish) yoki produce (video tayyorlash)"
+        description: "listen (botni yoqish), produce (video tayyorlash) yoki tts_test (ovozlarni solishtirish)"
         default: "listen"
 
 permissions:
@@ -57,6 +57,26 @@ jobs:
           curl -sL -o fonts/Montserrat-ExtraBold.ttf \
             "https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-ExtraBold.ttf" || true
 
+      # OmniVoice faqat tanlangan bo'lsa o'rnatiladi (aks holda hech narsa qo'shilmaydi)
+      - name: OmniVoice modeli keshi
+        if: ${{ vars.TTS_PROVIDER == 'omnivoice' || vars.TTS_FALLBACK == 'omnivoice' }}
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: omnivoice-model-v1
+      - name: OmniVoice ovozlari keshi
+        if: ${{ vars.TTS_PROVIDER == 'omnivoice' || vars.TTS_FALLBACK == 'omnivoice' }}
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uzbooks
+          key: omnivoice-voices-${{ github.run_id }}
+          restore-keys: omnivoice-voices-
+      - name: OmniVoice o'rnatish (CPU)
+        if: ${{ vars.TTS_PROVIDER == 'omnivoice' || vars.TTS_FALLBACK == 'omnivoice' }}
+        run: |
+          pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements-omnivoice.txt --extra-index-url https://download.pytorch.org/whl/cpu
+
       - name: Video tayyorlash
         env:
           USE_LISTENER: "true"
@@ -81,6 +101,13 @@ jobs:
           VISUAL_MODE: ${{ vars.VISUAL_MODE }}
           MAX_AI_IMAGES: ${{ vars.MAX_AI_IMAGES }}
           ELEVENLABS_STABILITY: ${{ vars.ELEVENLABS_STABILITY }}
+          TTS_FALLBACK: ${{ vars.TTS_FALLBACK }}
+          TTS_TIMEOUT: ${{ vars.TTS_TIMEOUT }}
+          TTS_NORMALIZE: ${{ vars.TTS_NORMALIZE }}
+          TTS_LOUDNESS: ${{ vars.TTS_LOUDNESS }}
+          OMNIVOICE_VOICE: ${{ vars.OMNIVOICE_VOICE }}
+          OMNIVOICE_STEPS: ${{ vars.OMNIVOICE_STEPS }}
+          OMNIVOICE_MAX_MINUTES: ${{ vars.OMNIVOICE_MAX_MINUTES }}
         run: python -m src.main produce
 
       - name: Natijalarni saqlash (7 kun)
@@ -94,5 +121,60 @@ jobs:
             work/**/script.json
             work/**/scenes.json
             work/**/result.json
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # ---------------- 3) Ovoz sinovi: Edge va OmniVoice namunalari Telegramga keladi ----------------
+  tts_test:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.task == 'tts_test' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Kutubxonalar
+        run: |
+          pip install -r requirements.txt
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
+      - name: Avtomatik testlar (internetsiz qism)
+        env:
+          GEMINI_API_KEY: "unused"
+        run: python -m unittest discover -s tests -t . -v
+      - name: OmniVoice modeli keshi
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: omnivoice-model-v1
+      - name: OmniVoice ovozlari keshi
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uzbooks
+          key: omnivoice-voices-${{ github.run_id }}
+          restore-keys: omnivoice-voices-
+      - name: OmniVoice o'rnatish (CPU)
+        continue-on-error: true
+        run: |
+          pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements-omnivoice.txt --extra-index-url https://download.pytorch.org/whl/cpu
+      - name: Ovoz namunalari
+        env:
+          GEMINI_API_KEY: "unused"
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
+          OMNIVOICE_VOICE: ${{ vars.OMNIVOICE_VOICE }}
+          OMNIVOICE_STEPS: ${{ vars.OMNIVOICE_STEPS }}
+          TTS_TEST_PROVIDERS: ${{ vars.TTS_TEST_PROVIDERS }}
+        run: python -m src.tts_test --telegram
+      - name: Namunalarni saqlash (7 kun)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tts-test
+          path: work/tts_test/
           retention-days: 7
           if-no-files-found: ignore
