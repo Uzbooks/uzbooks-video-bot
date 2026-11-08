@@ -400,11 +400,33 @@ class TestAisha(unittest.TestCase):
         self.assertEqual(self.sent[0]["voice_id"], "42")
         self.assertNotIn("mood", self.sent[0])
 
-    def test_unavailable_without_key(self):
+    def test_without_key_uses_public_mode(self):
         from src.tts_engines.aisha import AishaEngine
-        ok, why = AishaEngine("").available()
+        eng = AishaEngine("")
+        self.assertEqual(eng.available(), (True, ""))
+        self.assertTrue(eng.public)
+        ok, why = AishaEngine("", voice_id="5").available()
         self.assertFalse(ok)
         self.assertIn("AISHA_API_KEY", why)
+
+    def test_rejected_key_switches_to_public(self):
+        eng = self.make()
+        heads = []
+        test = self
+
+        def post(url, data, timeout, headers):
+            heads.append(dict(headers))
+            r = mock.Mock(status_code=403 if "X-Api-Key" in headers else 201, text="no")
+            r.json = lambda: {"audio_path": "/m/x.wav"}
+            return r
+        with mock.patch("src.tts_engines.aisha.requests.post", post), \
+                mock.patch("src.tts_engines.aisha.requests.get", self._get), \
+                mock.patch("src.tts_engines.aisha.time.sleep"):
+            d, cues = tts_engines.section(eng, UZ, self.tmp / "p.mp3")
+        self.assertTrue(eng.public)
+        self.assertIn("X-Api-Key", heads[0])
+        self.assertTrue(all("X-Api-Key" not in h for h in heads[1:]))
+        self.assertEqual(len(cues), 4)
 
 
 class TestPronunciation(unittest.TestCase):
