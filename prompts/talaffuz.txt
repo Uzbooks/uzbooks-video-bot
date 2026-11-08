@@ -1,0 +1,24 @@
+# Talaffuz lug'ati: ovoz qanday o'qishi kerak.  Yozilishi => O'qilishi
+# Subtitrda asl yozuv qoladi, faqat ovoz o'zgaradi. Yangi qatorlarni o'zingiz qo'shishingiz mumkin.
+Napoleon Hill => Napoleon Xill
+Henry Ford => Genri Ford
+Henri Ford => Genri Ford
+Andrew Carnegie => Endryu Karnegi
+Thomas Edison => Tomas Edison
+Warren Buffett => Uorren Baffet
+Elon Musk => Ilon Mask
+Steve Jobs => Stiv Jobs
+Bill Gates => Bill Geyts
+Dale Carnegie => Deyl Karnegi
+Robert Kiyosaki => Robert Kiyosaki
+James Clear => Jeyms Klir
+Stephen Covey => Stiven Kovi
+Brian Tracy => Brayan Treysi
+Tony Robbins => Toni Robbins
+Mark Twain => Mark Tven
+iPhone => ayfon
+YouTube => Yutub
+Google => Gugl
+Amazon => Amazon
+Apple => Eppl
+CEO => si-i-o

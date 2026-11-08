@@ -9,9 +9,14 @@ from .base import Engine, TTSError, chunks_by_sentences, duration, proportional
 class EdgeEngine(Engine):
     name = "edge"
 
-    def __init__(self, voice: str = "uz-UZ-SardorNeural", timeout: float = 180, attempts: int = 4):
+    def __init__(self, voice: str = "uz-UZ-SardorNeural", timeout: float = 180, attempts: int = 4,
+                 apostrophe: str = "'"):
         super().__init__(voice)
+        self.apostrophe = apostrophe or "'"         # ' yoki ʻ (qaysi biri yaxshi o'qilishini tts_test aniqlaydi)
         self.timeout, self.attempts = timeout, attempts
+
+    def label(self):
+        return f"edge:{self.voice}" + (" (ʻ)" if self.apostrophe != "'" else "")
 
     def available(self):
         try:
@@ -54,12 +59,14 @@ class EdgeEngine(Engine):
         raise TTSError(f"Edge TTS ovoz yarata olmadi: {last}")
 
     @staticmethod
-    def _cues(sents, events, total):
+    def _cues(sents, events, total, spoken=None):
+        """sents — subtitr uchun asl gaplar; spoken — ovozga ketgan matn (so'z sanash uchun)."""
+        spoken = spoken or sents
         sb = [e for e in events if e[0] == "SentenceBoundary"]
         if len(sb) == len(sents):
             return [(a, b, s) for (_, a, b, _), s in zip(sb, sents)]
         wb = [e for e in events if e[0] == "WordBoundary"]
-        counts = [len(x.split()) for x in sents]
+        counts = [len(x.split()) for x in spoken]
         if wb and abs(len(wb) - sum(counts)) <= max(3, sum(counts) // 20):
             cues, k = [], 0
             for c, s in zip(counts, sents):
@@ -76,7 +83,7 @@ class EdgeEngine(Engine):
             raw = stem.with_name(f"{stem.name}_edge{k}.mp3")
             events = self._chunk(" ".join(spoken[i] for i in group), raw)
             d = duration(raw)
-            part = self._cues([original[i] for i in group], events, d)
+            part = self._cues([original[i] for i in group], events, d, [spoken[i] for i in group])
             cues += [(a + offset, b + offset, s) for a, b, s in part]
             pieces.append(raw)
             offset += d

@@ -48,15 +48,22 @@ TEXT_MODEL = env("TEXT_MODEL", "")
 TEXT_MODEL_FALLBACKS = env("TEXT_MODEL_FALLBACKS", "")
 GEMINI_IMAGE_MODEL = env("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
 ELEVENLABS_MODEL = env("ELEVENLABS_MODEL", "eleven_v3")
-# Ovoz: "auto" (ElevenLabs kaliti bo'lsa u, bo'lmasa Edge), "elevenlabs", "edge" yoki "omnivoice"
+# Ovoz: "auto" (ElevenLabs > Aisha > Edge, qaysi kaliti bo'lsa), "edge", "aisha", "elevenlabs", "omnivoice"
 TTS_PROVIDER = env("TTS_PROVIDER", "auto")
 # Asosiy ovoz ishlamasa, butun ovoz shu dvijok bilan qayta yoziladi ("none" — zaxirasiz)
 TTS_FALLBACK = env("TTS_FALLBACK", "edge")
 TTS_TIMEOUT = float(env("TTS_TIMEOUT", "180"))      # bitta so'rovni kutish chegarasi (soniya)
-# Sonlarni so'z bilan yozish: "auto" (faqat OmniVoice uchun), "on" yoki "off"
-TTS_NORMALIZE = env("TTS_NORMALIZE", "auto")
+# Sonlar/vaqtlarni so'z bilan, xorijiy ismlarni prompts/talaffuz.txt bo'yicha o'qitish: "on" yoki "off"
+TTS_NORMALIZE = env("TTS_NORMALIZE", "on")
 TTS_LOUDNESS = env("TTS_LOUDNESS", "-16")           # ovoz balandligi, LUFS (YouTube uchun -14..-16)
 EDGE_VOICE = env("EDGE_VOICE", "uz-UZ-SardorNeural")   # yoki uz-UZ-MadinaNeural
+EDGE_APOSTROPHE = env("EDGE_APOSTROPHE", "'")          # ' yoki ʻ — oʻ/gʻ qaysi biri bilan yaxshi o'qilsa
+# Aisha TTS (o'zbekchaga maxsus, ~1 so'm/belgi): kalit — Secret AISHA_API_KEY
+AISHA_API_KEY = lambda: env("AISHA_API_KEY")
+AISHA_MODEL = env("AISHA_MODEL", "Gulnoza")
+AISHA_MOOD = env("AISHA_MOOD", "Neutral")                # Neutral / Cheerful / Happy / Sad
+AISHA_SPEED = env("AISHA_SPEED", "1.0")                  # 0.5 – 2.0
+AISHA_VOICE_ID = env("AISHA_VOICE_ID")                   # voicelab.uz'da yaratgan o'z ovozingiz (ixtiyoriy)
 # OmniVoice (bepul, lokal, CPU) — sinov bosqichida
 OMNIVOICE_MODEL = env("OMNIVOICE_MODEL", "k2-fsa/OmniVoice")
 OMNIVOICE_VOICE = env("OMNIVOICE_VOICE", "male, middle-aged, low pitch")   # ovoz tavsifi (inglizcha)

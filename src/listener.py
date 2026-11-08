@@ -92,7 +92,7 @@ def handle(msg: dict) -> None:
         telegram_io.send(f"🗑 «{removed['name']}» navbatdan olib tashlandi." if removed
                          else "Bunday raqamli kitob yo'q. /navbat ni tekshiring.")
     elif text == "/ovozsinov":
-        telegram_io.send("🧪 Ovoz sinovi boshlandi. 10–40 daqiqada Edge va OmniVoice namunalari shu yerga keladi."
+        telegram_io.send("🧪 Ovoz sinovi boshlandi. 3–10 daqiqada ovoz namunalari shu yerga keladi."
                          if dispatch("tts_test") else "⚠️ Ishga tushirib bo'lmadi.")
     elif text == "/boshla":
         telegram_io.send("▶️ Tayyorlash ishga tushirildi." if dispatch("produce")

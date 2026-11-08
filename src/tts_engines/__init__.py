@@ -1,7 +1,7 @@
 """Ovoz dvijoklari menejeri — bitta interfeys, avtomatik zaxira (fallback).
 
-TTS_PROVIDER = auto | edge | elevenlabs | omnivoice
-  auto  — ElevenLabs kaliti bo'lsa ElevenLabs, bo'lmasa Edge (avvalgi xatti-harakat)
+TTS_PROVIDER = auto | edge | aisha | elevenlabs | omnivoice
+  auto  — ElevenLabs kaliti bo'lsa ElevenLabs, Aisha kaliti bo'lsa Aisha, bo'lmasa Edge
 TTS_FALLBACK = edge (standart) | omnivoice | elevenlabs | none
 
 Asosiy dvijok biror bo'limda yiqilsa, BUTUN ovoz zaxira dvijok bilan qaytadan yoziladi —
@@ -16,7 +16,7 @@ from pathlib import Path
 from .. import audio_qa, config, uz_text
 from .base import Engine, TTSError, duration
 
-PROVIDERS = ("edge", "elevenlabs", "omnivoice")
+PROVIDERS = ("edge", "aisha", "elevenlabs", "omnivoice")
 END_PAD = 0.7                       # bo'lim oxiridagi pauza (soniya)
 
 warnings: list[str] = []           # oxirgi ishga tushirishdagi ogohlantirishlar
@@ -25,7 +25,7 @@ _engines: dict[str, Engine] = {}
 
 
 def _redact(msg: str) -> str:
-    for name in ("ELEVENLABS_API_KEY", "GEMINI_API_KEY", "TELEGRAM_BOT_TOKEN", "GITHUB_TOKEN",
+    for name in ("ELEVENLABS_API_KEY", "AISHA_API_KEY", "GEMINI_API_KEY", "TELEGRAM_BOT_TOKEN", "GITHUB_TOKEN",
                  "PEXELS_API_KEY", "PIXABAY_API_KEY", "ELEVENLABS_VOICE_ID"):
         val = os.environ.get(name)
         if val and len(val) > 6:
@@ -36,7 +36,12 @@ def _redact(msg: str) -> str:
 def make(name: str, voice: str = "") -> Engine:
     if name == "edge":
         from .edge import EdgeEngine
-        return EdgeEngine(voice or config.EDGE_VOICE, timeout=config.TTS_TIMEOUT)
+        return EdgeEngine(voice or config.EDGE_VOICE, timeout=config.TTS_TIMEOUT,
+                          apostrophe=config.EDGE_APOSTROPHE)
+    if name == "aisha":
+        from .aisha import AishaEngine
+        return AishaEngine(config.AISHA_API_KEY(), config.AISHA_MODEL, config.AISHA_MOOD, config.AISHA_SPEED,
+                           voice or config.AISHA_VOICE_ID, timeout=config.TTS_TIMEOUT)
     if name == "elevenlabs":
         from .elevenlabs import ElevenLabsEngine
         return ElevenLabsEngine(config.ELEVENLABS_API_KEY(), voice or config.ELEVENLABS_VOICE_ID(),
@@ -60,7 +65,9 @@ def engine(name: str) -> Engine:
 def primary_name() -> str:
     p = (config.TTS_PROVIDER or "auto").strip().lower()
     if p == "auto":
-        return "elevenlabs" if config.ELEVENLABS_API_KEY() and config.ELEVENLABS_VOICE_ID() else "edge"
+        if config.ELEVENLABS_API_KEY() and config.ELEVENLABS_VOICE_ID():
+            return "elevenlabs"
+        return "aisha" if config.AISHA_API_KEY() else "edge"
     if p not in PROVIDERS:
         msg = f"TTS_PROVIDER='{p}' noto'g'ri (mumkin: auto, {', '.join(PROVIDERS)}) — Edge ishlatildi"
         print(f"  ⚠️ {msg}")
@@ -89,7 +96,8 @@ def sentences(text: str) -> list[str]:
 
 
 def _normalize_numbers(eng: Engine) -> bool:
-    mode = (config.TTS_NORMALIZE or "auto").lower()
+    """Sonlar, vaqtlar va xorijiy ismlarni o'qilishi bo'yicha yozish (standart: hamma dvijoklar uchun)."""
+    mode = (config.TTS_NORMALIZE or "on").lower()
     return eng.normalize_numbers if mode == "auto" else mode in ("on", "1", "true", "yes")
 
 
@@ -125,7 +133,7 @@ def section(eng: Engine, text: str, dest: Path) -> tuple[float, list]:
     if not sents:
         raise TTSError("Bo'lim matni bo'sh")
     full = _normalize_numbers(eng)
-    spoken = [uz_text.for_speech(s, full=full) for s in sents]
+    spoken = [uz_text.for_speech(s, full=full, apostrophe=getattr(eng, "apostrophe", "'")) for s in sents]
     pieces, cues = eng.synth(spoken, sents, dest.with_suffix(""))
     _finalize(pieces, dest)
     errors, warns, info = audio_qa.check(dest, sum(len(s) for s in spoken))

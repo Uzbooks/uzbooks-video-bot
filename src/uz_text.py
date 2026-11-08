@@ -6,16 +6,24 @@
 - ba'zi qisqartmalar: mln, mlrd, h.k.
 """
 import re
+from pathlib import Path
 
-APOS = str.maketrans({"ʻ": "'", "ʼ": "'", "‘": "'", "’": "'", "`": "'", "´": "'"})
+APOS_CHARS = "ʻʼ‘’`´'"
+SUFFIX = r"(ga|da|dan|ni|ning|gacha|lik|li|dir|ta)\b"     # 25% ga -> foizga, 10:30 da -> o'ttizda
 
 ONES = ["nol", "bir", "ikki", "uch", "to'rt", "besh", "olti", "yetti", "sakkiz", "to'qqiz"]
 TENS = ["", "o'n", "yigirma", "o'ttiz", "qirq", "ellik", "oltmish", "yetmish", "sakson", "to'qson"]
 SCALES = [(10 ** 12, "trillion"), (10 ** 9, "milliard"), (10 ** 6, "million"), (1000, "ming")]
 
 
-def apostrophes(text: str) -> str:
-    return text.translate(APOS)
+def apostrophes(text: str, style: str = "'") -> str:
+    """Barcha apostroflarni bitta belgiga keltiradi. style: ' (oddiy) yoki ʻ (oʻzbek lotin standarti)."""
+    out = re.sub(f"[{APOS_CHARS}]", style, text)
+    if style != "'":
+        # ma'no, ta'lim (tutuq belgisi) — ʼ ; o', g' — ʻ
+        out = re.sub(f"(?i)(?<=[og]){re.escape(style)}", "ʻ", out)
+        out = re.sub(f"(?i)(?<![og]){re.escape(style)}(?=\\w)", "ʼ", out)
+    return out
 
 
 def _under_1000(n: int) -> list[str]:
@@ -66,13 +74,15 @@ NUM = rf"(?:{GROUPED}|\d+)"
 
 def numbers(text: str) -> str:
     # 10:30 (vaqt)
-    text = re.sub(r"\b(\d{1,2}):(\d{2})\b",
-                  lambda m: f"{cardinal(int(m[1]))} {cardinal(int(m[2])) if int(m[2]) else 'nol nol'}", text)
+    text = re.sub(rf"\b(\d{{1,2}}):(\d{{2}})\b(?:\s?{SUFFIX})?",
+                  lambda m: f"{cardinal(int(m[1]))} {cardinal(int(m[2])) if int(m[2]) else 'nol nol'}"
+                            f"{m[3] or ''}", text)
     # 2,5 yoki 2.5 (o'nli kasr)
     text = re.sub(r"\b(\d+)[.,](\d+)\b(?![.,]\d)",
                   lambda m: f"{cardinal(int(m[1]))} butun {cardinal(int(m[2]))}", text)
-    # 25% -> yigirma besh foiz
-    text = re.sub(rf"({NUM})\s?%", lambda m: f"{cardinal(_int(m[1]))} foiz", text)
+    # 25% -> yigirma besh foiz (25% ga -> yigirma besh foizga)
+    text = re.sub(rf"({NUM})\s?%(?:\s?{SUFFIX})?",
+                  lambda m: f"{cardinal(_int(m[1]))} foiz{m[2] or ''}", text)
     # 1937-yil, 2-bob, 5-son -> tartib son
     text = re.sub(rf"\b({NUM})\s?[-–]\s?([^\W\d_])",
                   lambda m: f"{ordinal(_int(m[1]))} {m[2]}", text)
@@ -92,9 +102,33 @@ def abbreviations(text: str) -> str:
     return re.sub(r"[ \t]{2,}", " ", text)
 
 
-def for_speech(text: str, full: bool = True) -> str:
-    """full=False — faqat apostroflar (uzunlik o'zgarmaydi). full=True — sonlar va qisqartmalar ham."""
-    text = apostrophes(text)
+_lexicon = None
+
+
+def lexicon() -> list[tuple[re.Pattern, str]]:
+    """prompts/talaffuz.txt: «Henry Ford => Genri Ford» — ovozda qanday o'qilishi kerakligi."""
+    global _lexicon
+    if _lexicon is None:
+        _lexicon = []
+        path = Path(__file__).resolve().parent.parent / "prompts" / "talaffuz.txt"
+        if path.exists():
+            for line in path.read_text(encoding="utf-8").splitlines():
+                if "=>" in line and not line.strip().startswith("#"):
+                    a, b = (x.strip() for x in line.split("=>", 1))
+                    if a and b:
+                        _lexicon.append((re.compile(rf"(?<!\w){re.escape(a)}(?!\w)", re.I), b))
+    return _lexicon
+
+
+def pronounce(text: str) -> str:
+    for pat, rep in lexicon():
+        text = pat.sub(rep, text)
+    return text
+
+
+def for_speech(text: str, full: bool = True, apostrophe: str = "'") -> str:
+    """full=False — faqat apostroflar (uzunlik o'zgarmaydi). full=True — talaffuz lug'ati, sonlar,
+    qisqartmalar ham."""
     if full:
-        text = numbers(abbreviations(text))
-    return text.strip()
+        text = numbers(abbreviations(pronounce(apostrophes(text))))
+    return apostrophes(text, apostrophe).strip()

@@ -331,3 +331,99 @@ class TestOmniVoiceCodePath(unittest.TestCase):
         eng._started = 1.0
         with self.assertRaises(TTSError):
             eng.synth(["Salom."], ["Salom."], self.tmp / "x")
+
+
+class TestAisha(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.wav = tone(self.tmp / "src.wav", 1.2, 300).read_bytes()
+        self.sent = []
+
+    def _post(self, codes):
+        test = self
+
+        def post(url, data, timeout, headers):
+            test.sent.append(data)
+            code = codes.pop(0) if codes else 201
+            r = mock.Mock(status_code=code, text="err")
+            r.json = lambda: {"audio_path": "/media/tts_audios/x.wav"}
+            return r
+        return post
+
+    def _get(self, url, timeout):
+        return mock.Mock(status_code=200, content=self.wav)
+
+    def make(self, **kw):
+        from src.tts_engines.aisha import AishaEngine
+        return AishaEngine("key", **kw)
+
+    def test_section(self):
+        eng = self.make()
+        with mock.patch("src.tts_engines.aisha.requests.post", self._post([])), \
+                mock.patch("src.tts_engines.aisha.requests.get", self._get), \
+                mock.patch("src.tts_engines.aisha.time.sleep"):
+            d, cues = tts_engines.section(eng, UZ, self.tmp / "a.mp3")
+        self.assertEqual(len(cues), 4)
+        self.assertEqual(len(self.sent), 4)                       # har bir gap — bitta so'rov
+        self.assertEqual(self.sent[0]["model"], "Gulnoza")
+        self.assertIn("yettinchi", self.sent[2]["transcript"])   # sonlar so'z bilan
+        self.assertTrue(all(b <= d for _, b, _ in cues))
+        self.assertGreater(cues[1][0], cues[0][1])                # gaplar orasida pauza
+
+    def test_retry_then_ok(self):
+        eng = self.make()
+        with mock.patch("src.tts_engines.aisha.requests.post", self._post([503, 503])), \
+                mock.patch("src.tts_engines.aisha.requests.get", self._get), \
+                mock.patch("src.tts_engines.aisha.time.sleep"):
+            tts_engines.section(eng, "Salom dunyo.", self.tmp / "b.mp3")
+        self.assertEqual(len(self.sent), 3)
+
+    def test_no_balance_is_clear_error(self):
+        eng = self.make()
+        with mock.patch("src.tts_engines.aisha.requests.post", self._post([402])), \
+                mock.patch("src.tts_engines.aisha.time.sleep"):
+            with self.assertRaises(TTSError) as cm:
+                tts_engines.section(eng, "Salom dunyo.", self.tmp / "c.mp3")
+        self.assertIn("balans", str(cm.exception))
+        self.assertEqual(len(self.sent), 1)                       # balans yo'q — qayta urinmaydi
+
+    def test_custom_voice_and_long_sentence(self):
+        from src.tts_engines.aisha import split_long
+        eng = self.make(voice_id="42")
+        long = " ".join(["so'z"] * 400) + "."
+        self.assertTrue(all(len(p) <= 950 for p in split_long(long)))
+        with mock.patch("src.tts_engines.aisha.requests.post", self._post([])), \
+                mock.patch("src.tts_engines.aisha.requests.get", self._get), \
+                mock.patch("src.tts_engines.aisha.time.sleep"):
+            eng.synth([long], [long], self.tmp / "d")
+        self.assertGreater(len(self.sent), 1)
+        self.assertEqual(self.sent[0]["voice_id"], "42")
+        self.assertNotIn("mood", self.sent[0])
+
+    def test_unavailable_without_key(self):
+        from src.tts_engines.aisha import AishaEngine
+        ok, why = AishaEngine("").available()
+        self.assertFalse(ok)
+        self.assertIn("AISHA_API_KEY", why)
+
+
+class TestPronunciation(unittest.TestCase):
+    def test_lexicon_and_suffixes(self):
+        f = uz_text.for_speech
+        self.assertEqual(f("Henry Ford va Napoleon Hill."), "Genri Ford va Napoleon Xill.")
+        self.assertEqual(f("25% ga oshdi"), "yigirma besh foizga oshdi")
+        self.assertEqual(f("10:30 da"), "o'n o'ttizda")
+
+    def test_okina_style(self):
+        self.assertEqual(uz_text.for_speech("O'zbek g'oya ma'no", apostrophe="ʻ"), "Oʻzbek gʻoya maʼno")
+
+    def test_default_normalizes_for_all_engines(self):
+        with mock.patch.object(config, "TTS_NORMALIZE", "on"):
+            self.assertTrue(tts_engines._normalize_numbers(EdgeEngine()))
+
+    def test_edge_word_cues_use_spoken_text(self):
+        ev = [("WordBoundary", i * 0.5, i * 0.5 + 0.4, "w") for i in range(8)]
+        cues = EdgeEngine._cues(["1937-yil.", "Bu yaxshi."], ev, 4.0,
+                                ["bir ming to'qqiz yuz o'ttiz yettinchi yil.", "Bu yaxshi."])
+        self.assertAlmostEqual(cues[1][0], 3.5)   # 7 so'zdan keyin
+        self.assertEqual(cues[0][2], "1937-yil.")

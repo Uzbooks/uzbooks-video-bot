@@ -1,6 +1,7 @@
 """Ovoz dvijoklarini solishtirish: bir xil o'zbekcha matnni har xil ovozda o'qib, namunalarni beradi.
 
-  python -m src.tts_test                                   # Edge (Sardor, Madina) + OmniVoice (erkak, ayol)
+  python -m src.tts_test                                   # Edge (' va ʻ bilan) + Aisha
+  python -m src.tts_test --providers edge_female,omnivoice  # boshqa ovozlar
   python -m src.tts_test --providers omnivoice --text "Salom, dunyo."
   python -m src.tts_test --telegram                        # namunalarni Telegramga yuborish (GitHub'da)
 
@@ -17,7 +18,7 @@ SAMPLE = (
     "Assalomu alaykum, aziz do'stlar! Bugun biz Napoleon Xillning «O'ylang va boying» kitobi haqida "
     "gaplashamiz. Bu kitob 1937-yilda nashr etilgan va shu kungacha 100 million nusxadan ko'p sotilgan. "
     "G'oya oddiy: aniq maqsad, qat'iy reja va har kuni kichik qadam. O'zbekistonda ham, Germaniyada ham "
-    "bu qoidalar bir xil ishlaydi. Muallif yigirma yil davomida Endryu Karnegi, Genri Ford va Tomas Edison "
+    "bu qoidalar bir xil ishlaydi. Muallif yigirma yil davomida Andrew Carnegie, Henry Ford va Thomas Edison "
     "kabi beshyuzdan ortiq muvaffaqiyatli insonlar bilan suhbatlashgan, ularning odatlarini o'rganib, "
     "ularni o'n uchta tamoyilga jamlagan. Sizningcha, eng muhimi qaysi? Soat 10:30 da boshlangan uchrashuv "
     "2,5 soat davom etdi, natijada sotuvlar 25% ga oshdi."
@@ -25,6 +26,8 @@ SAMPLE = (
 
 PRESETS = {
     "edge": ("edge", "uz-UZ-SardorNeural"),
+    "edge_okina": ("edge", "uz-UZ-SardorNeural"),                    # oʻ/gʻ — ʻ belgisi bilan
+    "aisha": ("aisha", ""),
     "edge_female": ("edge", "uz-UZ-MadinaNeural"),
     "omnivoice": ("omnivoice", ""),                                  # OMNIVOICE_VOICE (erkak)
     "omnivoice_female": ("omnivoice", "female, middle-aged, moderate pitch"),
@@ -43,6 +46,8 @@ def run(names: list[str], text: str, out: Path, telegram: bool) -> list[dict]:
         res = {"preset": key, "ok": False}
         try:
             eng = tts_engines.make(name, voice)
+            if key == "edge_okina":
+                eng.apostrophe = "ʻ"
             ok, why = eng.available()
             if not ok:
                 res["error"] = f"NOT TESTED — {why}"
@@ -81,7 +86,7 @@ def run(names: list[str], text: str, out: Path, telegram: bool) -> list[dict]:
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--providers", default=config.env("TTS_TEST_PROVIDERS",
-                                                      "edge,edge_female,omnivoice,omnivoice_female"))
+                                                      "edge,edge_okina,aisha"))
     ap.add_argument("--text", default="")
     ap.add_argument("--out", default=str(config.WORK / "tts_test"))
     ap.add_argument("--telegram", action="store_true")

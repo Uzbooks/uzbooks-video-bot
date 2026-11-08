@@ -167,7 +167,7 @@ tizim matnni **so'zma-so'z** o'qiydi — Gemini uni qayta yozmaydi, faqat bo'lim
 | faylga izoh (caption) yozish | ssenariy uchun qo'shimcha ko'rsatma beradi |
 | `/navbat` | navbatdagi kitoblarni ko'rsatadi |
 | `/ochir 2` | 2-kitobni navbatdan olib tashlaydi |
-| `/ovozsinov` | Edge va OmniVoice ovoz namunalarini Telegramga yuboradi (solishtirish uchun) |
+| `/ovozsinov` | ovoz namunalarini (Edge, Aisha) Telegramga yuboradi — solishtirish uchun |
 
 Bot xabarlarga darhol emas, **soatiga bir marta** javob beradi.
 
@@ -185,10 +185,14 @@ U faylda ikki joyda turibdi, ikkalasini ham o'zgartiring.
 | `VISUAL_MODE` | `images` (har bir sahnaga mos AI rasm) / `stock` (avval stok video) | `images` |
 | `MAX_AI_IMAGES` | bitta videoga eng ko'p AI rasm soni (xarajat chegarasi) | `70` |
 | `ELEVENLABS_STABILITY` | `0.0` (jonli, hissiyotli) / `0.5` (tabiiy) / `1.0` (barqaror) | ovoz sozlamasi |
-| `TTS_PROVIDER` | `auto` / `edge` / `elevenlabs` / `omnivoice` | `auto` (ElevenLabs kaliti bo'lsa u, bo'lmasa Edge) |
+| `TTS_PROVIDER` | `auto` / `edge` / `aisha` / `elevenlabs` / `omnivoice` | `auto` (ElevenLabs > Aisha > Edge — qaysi kaliti bo'lsa) |
+| `AISHA_MOOD` | `Neutral` / `Cheerful` / `Happy` / `Sad` | `Neutral` |
+| `AISHA_SPEED` | `0.5` – `2.0` | `1.0` |
+| `AISHA_VOICE_ID` | voicelab.uz'da yaratgan o'z ovozingiz raqami (ixtiyoriy) | — (Gulnoza) |
+| `EDGE_APOSTROPHE` | `'` yoki `ʻ` — Edge oʻ/gʻ ni qaysi biri bilan yaxshi o'qisa | `'` |
 | `TTS_FALLBACK` | asosiy ovoz ishlamasa: `edge` / `omnivoice` / `elevenlabs` / `none` | `edge` |
 | `TTS_TIMEOUT` | bitta so'rovni kutish, soniya | `180` |
-| `TTS_NORMALIZE` | sonlarni so'z bilan o'qitish: `auto` (faqat OmniVoice) / `on` / `off` | `auto` |
+| `TTS_NORMALIZE` | sonlar/vaqtlarni so'z bilan, xorijiy ismlarni `prompts/talaffuz.txt` bo'yicha o'qitish: `on` / `off` | `on` |
 | `TTS_LOUDNESS` | ovoz balandligi, LUFS | `-16` |
 | `OMNIVOICE_VOICE` | OmniVoice ovoz tavsifi (inglizcha), masalan `female, middle-aged, moderate pitch` | `male, middle-aged, low pitch` |
 | `OMNIVOICE_STEPS` | `16` (tezroq) / `32` (sifatliroq) | `32` |
@@ -206,19 +210,24 @@ Matn uslubini quyidagi fayllarda o'zgartirasiz:
 | Dvijok | Narx | O'zbekcha | Holat |
 |---|---|---|---|
 | **Edge TTS** (Sardor / Madina) | bepul | ✅ | ishonchli zaxira; Microsoft'ning norasmiy servisi, kafolat yo'q |
+| **Aisha TTS** (aisha.group) | ~1 so'm/belgi (10 daqiqa ≈ 9 000 so'm) | ✅ o'zbekchaga maxsus | **tavsiya etiladi**; Secret `AISHA_API_KEY` |
 | **ElevenLabs** | pullik | ✅ | ixtiyoriy, tijoriy foydalanishga ruxsat (pullik tarifda) |
-| **OmniVoice** (k2-fsa, Apache-2.0) | bepul, GitHub'da CPU'da ishlaydi | ✅ ro'yxatda bor | **sinov bosqichida** — avval `/ovozsinov` bilan tinglang |
+| **OmniVoice** (k2-fsa, Apache-2.0) | bepul | ⚠️ sinovda robotik | **tavsiya etilmaydi**: CPU'da juda sekin (RTF ~35 — 10 daqiqaga ~6 soat) |
+
+**Talaffuz lug'ati:** `prompts/talaffuz.txt` — xorijiy ismlar qanday o'qilishi (`Henry Ford => Genri Ford`).
+Subtitrda asl yozuv qoladi. Yangi ismlarni o'zingiz qo'shishingiz mumkin.
+
+**Aisha'ni ulash:** voicelab.uz/app da ro'yxatdan o'ting → balansni to'ldiring → API kalit yarating →
+GitHub **Secrets**ga `AISHA_API_KEY` nomi bilan qo'shing → `/ovozsinov` → yoqsa Variables'da `TTS_PROVIDER` = `aisha`.
 
 **Qanday ishlaydi:** har bir video uchun avval `TTS_PROVIDER`, ishlamasa `TTS_FALLBACK` (standart Edge).
 Zaxiraga o'tilsa, **butun ovoz** qaytadan yoziladi (bitta videoda ikki xil ovoz bo'lmaydi) va Telegram
 hisobotida "🎙 Ovoz bo'yicha" ogohlantirishi chiqadi. Har bir bo'lim ovozi avtomatik tekshiriladi
 (bo'sh/buzilgan fayl, tushib qolgan gaplar, uzun jimlik, clipping) va balandligi -16 LUFS ga tekislanadi.
 
-**OmniVoice'ga o'tish:**
-1. Telegramda `/ovozsinov` yuboring (yoki Actions → Run workflow → `tts_test`). 10–40 daqiqada namunalar keladi.
-   Birinchi marta model yuklab olinadi (bir necha GB), keyin keshdan olinadi.
-2. Yoqsa: Variables'da `TTS_PROVIDER` = `omnivoice`. Ovozni `OMNIVOICE_VOICE` bilan tanlang.
-3. Qaytish (rollback): `TTS_PROVIDER` = `edge` (yoki o'chirib tashlang — `auto`).
+**OmniVoice'ni baribir sinash:** Variables'da `TTS_TEST_PROVIDERS` = `omnivoice,omnivoice_female` → `/ovozsinov`.
+
+**Qaytish (rollback):** `TTS_PROVIDER` = `edge` (yoki o'chirib tashlang — `auto`).
 
 **Windows'da lokal sinov (ixtiyoriy, GPU shart emas):**
 ```
