@@ -101,6 +101,11 @@ jobs:
           VISUAL_MODE: ${{ vars.VISUAL_MODE }}
           MAX_AI_IMAGES: ${{ vars.MAX_AI_IMAGES }}
           ELEVENLABS_STABILITY: ${{ vars.ELEVENLABS_STABILITY }}
+          AISHA_API_KEY: ${{ secrets.AISHA_API_KEY }}
+          AISHA_MOOD: ${{ vars.AISHA_MOOD }}
+          AISHA_SPEED: ${{ vars.AISHA_SPEED }}
+          AISHA_VOICE_ID: ${{ vars.AISHA_VOICE_ID }}
+          EDGE_APOSTROPHE: ${{ vars.EDGE_APOSTROPHE }}
           TTS_FALLBACK: ${{ vars.TTS_FALLBACK }}
           TTS_TIMEOUT: ${{ vars.TTS_TIMEOUT }}
           TTS_NORMALIZE: ${{ vars.TTS_NORMALIZE }}
@@ -128,7 +133,7 @@ jobs:
   tts_test:
     if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.task == 'tts_test' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -144,17 +149,20 @@ jobs:
           GEMINI_API_KEY: "unused"
         run: python -m unittest discover -s tests -t . -v
       - name: OmniVoice modeli keshi
+        if: ${{ contains(vars.TTS_TEST_PROVIDERS, 'omnivoice') }}
         uses: actions/cache@v4
         with:
           path: ~/.cache/huggingface
           key: omnivoice-model-v1
       - name: OmniVoice ovozlari keshi
+        if: ${{ contains(vars.TTS_TEST_PROVIDERS, 'omnivoice') }}
         uses: actions/cache@v4
         with:
           path: ~/.cache/uzbooks
           key: omnivoice-voices-${{ github.run_id }}
           restore-keys: omnivoice-voices-
       - name: OmniVoice o'rnatish (CPU)
+        if: ${{ contains(vars.TTS_TEST_PROVIDERS, 'omnivoice') }}
         continue-on-error: true
         run: |
           pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
@@ -166,6 +174,10 @@ jobs:
           TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
+          AISHA_API_KEY: ${{ secrets.AISHA_API_KEY }}
+          AISHA_MOOD: ${{ vars.AISHA_MOOD }}
+          AISHA_SPEED: ${{ vars.AISHA_SPEED }}
+          AISHA_VOICE_ID: ${{ vars.AISHA_VOICE_ID }}
           OMNIVOICE_VOICE: ${{ vars.OMNIVOICE_VOICE }}
           OMNIVOICE_STEPS: ${{ vars.OMNIVOICE_STEPS }}
           TTS_TEST_PROVIDERS: ${{ vars.TTS_TEST_PROVIDERS }}
