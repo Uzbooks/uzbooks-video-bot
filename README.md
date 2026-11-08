@@ -5,7 +5,7 @@ quyidagilarni o'zi bajaradi:
 
 1. Kitobni o'qiydi va konspekt qiladi (Gemini, bepul).
 2. 7 blitzdan iborat, taxminan 10 daqiqalik o'zbekcha ssenariy yozadi (Gemini, bepul).
-3. Videoni montaj qiladi. Har bir bo'lim 9 soniyalik bir nechta sahnadan iborat:
+3. Videoni montaj qiladi. Ovozdagi gaplar ~10 soniyalik sahnalarga bo'linadi va har bir sahnaga aynan o'sha gaplarga mos kadr tanlanadi:
    - **Pexels** kaliti bo'lsa (bepul), har bir sahnaga mavzuga mos **haqiqiy stok video** qo'yiladi.
    - Bo'lmasa, harakatlanuvchi rasm qo'yiladi (Gemini rasmi yoki bepul dizayn-kartochka).
    - Ustidan ovozga aniq mos **subtitrlar**, har bir blitz boshida katta sarlavha, yuqorida bo'lim nomi
@@ -142,6 +142,23 @@ Bu bizga mos, chunki siz baribir chiqarishdan oldin ko'rib chiqasiz.
 
 ---
 
+## Bot doimiy ishlashi (darhol javob + avtomatik boshlash)
+Workflow'da ikkita ish bor:
+- **listen** — botni ~6 soat uzluksiz tinglaydi, keyin o'zini qayta yoqadi. Xabarlarga 1–3 soniyada javob beradi,
+  kitob kelishi bilan **produce** ni ishga tushiradi.
+- **produce** — navbatdagi barcha kitoblardan video tayyorlaydi va videoni Telegram'ga **video ko'rinishida**
+  yuboradi (50 MB dan katta bo'lsa, 720p ga siqiladi).
+
+Uzluksiz tinglash uchun repozitoriy **Public** bo'lishi kerak (public repolarda GitHub Actions bepul va cheklovsiz).
+Secrets (API kalitlar) public repoda ham yashirin qoladi.
+
+Birinchi marta yoqish: **Actions → UzBooks → Run workflow → task: `listen`**.
+
+## Tayyor ssenariy rejimi
+Agar botga **o'zingiz yozgan ssenariyni** yuborsangiz va fayl nomida yoki izohida *ssenariy* / *tayyor* so'zi bo'lsa,
+tizim matnni **so'zma-so'z** o'qiydi — Gemini uni qayta yozmaydi, faqat bo'limlarga ajratadi va sarlavha/tavsif yozadi.
+"Ekrandagi sarlavha:", "Rasm uchun prompt:" kabi xizmat qatorlari va "BLITZ 1 —" kabi sarlavhalar ovozga o'qilmaydi.
+
 ## Kundalik foydalanish
 
 | Telegram'da | Nima qiladi |
@@ -150,6 +167,7 @@ Bu bizga mos, chunki siz baribir chiqarishdan oldin ko'rib chiqasiz.
 | faylga izoh (caption) yozish | ssenariy uchun qo'shimcha ko'rsatma beradi |
 | `/navbat` | navbatdagi kitoblarni ko'rsatadi |
 | `/ochir 2` | 2-kitobni navbatdan olib tashlaydi |
+| `/ovozsinov` | Edge va OmniVoice ovoz namunalarini Telegramga yuboradi (solishtirish uchun) |
 
 Bot xabarlarga darhol emas, **soatiga bir marta** javob beradi.
 
@@ -162,9 +180,19 @@ U faylda ikki joyda turibdi, ikkalasini ham o'zgartiring.
 
 | Variable | Qiymatlar | Standart |
 |---|---|---|
-| `TEXT_MODEL` | Gemini matn modeli | `gemini-2.5-flash` |
+| `TEXT_MODEL` | Gemini matn modeli (odatda bo‘sh qoldiring) | avtomatik: mavjud Flash modellari |
 | `IMAGE_PROVIDER` | `auto` / `gemini` / `cards` | `auto` (Gemini, ishlamasa kartochka) |
-| `TTS_PROVIDER` | `auto` / `edge` / `elevenlabs` | `auto` (ElevenLabs kaliti bo'lsa u, bo'lmasa Edge) |
+| `VISUAL_MODE` | `images` (har bir sahnaga mos AI rasm) / `stock` (avval stok video) | `images` |
+| `MAX_AI_IMAGES` | bitta videoga eng ko'p AI rasm soni (xarajat chegarasi) | `70` |
+| `ELEVENLABS_STABILITY` | `0.0` (jonli, hissiyotli) / `0.5` (tabiiy) / `1.0` (barqaror) | ovoz sozlamasi |
+| `TTS_PROVIDER` | `auto` / `edge` / `elevenlabs` / `omnivoice` | `auto` (ElevenLabs kaliti bo'lsa u, bo'lmasa Edge) |
+| `TTS_FALLBACK` | asosiy ovoz ishlamasa: `edge` / `omnivoice` / `elevenlabs` / `none` | `edge` |
+| `TTS_TIMEOUT` | bitta so'rovni kutish, soniya | `180` |
+| `TTS_NORMALIZE` | sonlarni so'z bilan o'qitish: `auto` (faqat OmniVoice) / `on` / `off` | `auto` |
+| `TTS_LOUDNESS` | ovoz balandligi, LUFS | `-16` |
+| `OMNIVOICE_VOICE` | OmniVoice ovoz tavsifi (inglizcha), masalan `female, middle-aged, moderate pitch` | `male, middle-aged, low pitch` |
+| `OMNIVOICE_STEPS` | `16` (tezroq) / `32` (sifatliroq) | `32` |
+| `OMNIVOICE_MAX_MINUTES` | OmniVoice uchun vaqt chegarasi; oshsa Edge'ga o'tadi | `150` |
 | `EDGE_VOICE` | `uz-UZ-SardorNeural` (erkak) / `uz-UZ-MadinaNeural` (ayol) | `uz-UZ-SardorNeural` |
 | `GEMINI_IMAGE_MODEL` | Nano Banana modeli | `gemini-2.5-flash-image` |
 
@@ -172,6 +200,41 @@ Matn uslubini quyidagi fayllarda o'zgartirasiz:
 - `prompts/style.md` — ssenariy qoidalari
 - `prompts/example_script.md` — namuna ssenariy
 - `prompts/image_style.txt` — rasm uslubi
+
+## Ovoz (TTS) dvijoklari
+
+| Dvijok | Narx | O'zbekcha | Holat |
+|---|---|---|---|
+| **Edge TTS** (Sardor / Madina) | bepul | ✅ | ishonchli zaxira; Microsoft'ning norasmiy servisi, kafolat yo'q |
+| **ElevenLabs** | pullik | ✅ | ixtiyoriy, tijoriy foydalanishga ruxsat (pullik tarifda) |
+| **OmniVoice** (k2-fsa, Apache-2.0) | bepul, GitHub'da CPU'da ishlaydi | ✅ ro'yxatda bor | **sinov bosqichida** — avval `/ovozsinov` bilan tinglang |
+
+**Qanday ishlaydi:** har bir video uchun avval `TTS_PROVIDER`, ishlamasa `TTS_FALLBACK` (standart Edge).
+Zaxiraga o'tilsa, **butun ovoz** qaytadan yoziladi (bitta videoda ikki xil ovoz bo'lmaydi) va Telegram
+hisobotida "🎙 Ovoz bo'yicha" ogohlantirishi chiqadi. Har bir bo'lim ovozi avtomatik tekshiriladi
+(bo'sh/buzilgan fayl, tushib qolgan gaplar, uzun jimlik, clipping) va balandligi -16 LUFS ga tekislanadi.
+
+**OmniVoice'ga o'tish:**
+1. Telegramda `/ovozsinov` yuboring (yoki Actions → Run workflow → `tts_test`). 10–40 daqiqada namunalar keladi.
+   Birinchi marta model yuklab olinadi (bir necha GB), keyin keshdan olinadi.
+2. Yoqsa: Variables'da `TTS_PROVIDER` = `omnivoice`. Ovozni `OMNIVOICE_VOICE` bilan tanlang.
+3. Qaytish (rollback): `TTS_PROVIDER` = `edge` (yoki o'chirib tashlang — `auto`).
+
+**Windows'da lokal sinov (ixtiyoriy, GPU shart emas):**
+```
+py -3.12 -m venv .venv
+.venv\Scripts\activate
+pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+pip install -r requirements.txt -r requirements-omnivoice.txt
+winget install Gyan.FFmpeg
+set GEMINI_API_KEY=unused
+python -m src.tts_test --providers omnivoice,edge --text "Assalomu alaykum, bu sinov."
+```
+Natija `work\tts_test\` papkasida. 8 GB RAM'da boshqa og'ir dasturlarni yopib ishga tushiring.
+O'z ovozingizni klonlash: `set OMNIVOICE_REF_WAV=C:\yo'l\ovozim.wav` (10–20 s toza yozuv) va
+`set OMNIVOICE_REF_TEXT=yozuvdagi matn`. **Ovoz yozuvini repoga qo'ymang** — repo ochiq.
+
+**Testlar:** `python -m unittest discover -s tests -t . -v`
 
 ## Sifat nazorati nimani tekshiradi
 - Bo'limlar to'liqligi, so'z soni, kirill harflari yo'qligi va sarlavha uzunligi.

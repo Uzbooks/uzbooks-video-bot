@@ -48,11 +48,10 @@ def build_video(book_path: Path, note: str, work: Path, upload: bool, notify: bo
 
     # Ovoz: har bir bo'lim bitta butun matn sifatida (tabiiy intonatsiya), gap vaqtlari bilan
     log(f"🎙 Ovoz yozilmoqda ({tts.provider()})...")
-    durations, all_cues = [], []
-    for i, s in enumerate(sections):
-        d, cues = tts.synthesize_with_cues(s["narration"], work / f"audio_{i}.mp3")
-        durations.append(d)
-        all_cues.append(cues)
+    voiced = tts.synthesize_sections([s["narration"] for s in sections],
+                                     [work / f"audio_{i}.mp3" for i in range(len(sections))])
+    durations = [d for d, _ in voiced]
+    all_cues = [c for _, c in voiced]
     total_sec = sum(durations)
 
     # Sahnalar: gaplar bo'yicha ~10 soniyalik bo'laklar + har biriga mos kadr rejasi
@@ -130,7 +129,8 @@ def build_video(book_path: Path, note: str, work: Path, upload: bool, notify: bo
               "score": review.get("score"), "critical": review.get("critical", []),
               "minor": review.get("minor", []), "formal": formal,
               "media": media_problems, "video_id": None, "thumb_err": None,
-              "voice": tts.provider(),
+              "voice": tts.voice_label(),
+              "voice_warnings": tts.warnings(),
               "mode": script.get("mode", ""),
               "visuals": f"AI rasm {counts['ai']}, stok video {counts['stock']}, "
                          f"oddiy fon {counts['card']}"
@@ -176,6 +176,8 @@ def report(r: dict, thumb: Path, work: Path, ok: bool) -> None:
         lines += ["", "Muammolar:"] + [f"• {p}" for p in probs]
     if r["minor"]:
         lines += ["", "Mayda eslatmalar:"] + [f"• {p}" for p in r["minor"][:5]]
+    if r.get("voice_warnings"):
+        lines += ["", "🎙 Ovoz bo'yicha:"] + [f"• {p[:300]}" for p in r["voice_warnings"][:5]]
     msg = "\n".join(lines)
     telegram_io.send_photo(thumb, r["title"])
     telegram_io.send(msg)

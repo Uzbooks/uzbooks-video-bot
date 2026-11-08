@@ -60,7 +60,8 @@ def handle(msg: dict) -> None:
         telegram_io.send("Assalomu alaykum! Kitob yoki ssenariy faylini (PDF/EPUB/TXT/DOCX) yuboring — "
                          "video avtomatik tayyorlanadi.\nTayyor ssenariy so'zma-so'z o'qilishi uchun izohga "
                          "«tayyor ssenariy» deb yozing.\n\n/navbat — navbatni ko'rish\n"
-                         "/ochir 2 — 2-kitobni navbatdan olib tashlash\n/boshla — tayyorlashni qo'lda boshlash")
+                         "/ochir 2 — 2-kitobni navbatdan olib tashlash\n/boshla — tayyorlashni qo'lda boshlash\n"
+                         "/ovozsinov — ovozlarni solishtirish (namunalar keladi)")
     elif text == "/navbat":
         q = gitsync.latest()
         running = [b for b in q["books"] if b["status"] == "processing"]
@@ -90,6 +91,9 @@ def handle(msg: dict) -> None:
         gitsync.update(rm, "navbatdan olib tashlandi")
         telegram_io.send(f"🗑 «{removed['name']}» navbatdan olib tashlandi." if removed
                          else "Bunday raqamli kitob yo'q. /navbat ni tekshiring.")
+    elif text == "/ovozsinov":
+        telegram_io.send("🧪 Ovoz sinovi boshlandi. 10–40 daqiqada Edge va OmniVoice namunalari shu yerga keladi."
+                         if dispatch("tts_test") else "⚠️ Ishga tushirib bo'lmadi.")
     elif text == "/boshla":
         telegram_io.send("▶️ Tayyorlash ishga tushirildi." if dispatch("produce")
                          else "⚠️ Ishga tushirib bo'lmadi.")

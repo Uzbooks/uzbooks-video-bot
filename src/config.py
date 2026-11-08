@@ -48,9 +48,23 @@ TEXT_MODEL = env("TEXT_MODEL", "")
 TEXT_MODEL_FALLBACKS = env("TEXT_MODEL_FALLBACKS", "")
 GEMINI_IMAGE_MODEL = env("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
 ELEVENLABS_MODEL = env("ELEVENLABS_MODEL", "eleven_v3")
-# Ovoz: "auto" (ElevenLabs kaliti bo'lsa u, bo'lmasa Edge), "elevenlabs" yoki "edge"
+# Ovoz: "auto" (ElevenLabs kaliti bo'lsa u, bo'lmasa Edge), "elevenlabs", "edge" yoki "omnivoice"
 TTS_PROVIDER = env("TTS_PROVIDER", "auto")
+# Asosiy ovoz ishlamasa, butun ovoz shu dvijok bilan qayta yoziladi ("none" — zaxirasiz)
+TTS_FALLBACK = env("TTS_FALLBACK", "edge")
+TTS_TIMEOUT = float(env("TTS_TIMEOUT", "180"))      # bitta so'rovni kutish chegarasi (soniya)
+# Sonlarni so'z bilan yozish: "auto" (faqat OmniVoice uchun), "on" yoki "off"
+TTS_NORMALIZE = env("TTS_NORMALIZE", "auto")
+TTS_LOUDNESS = env("TTS_LOUDNESS", "-16")           # ovoz balandligi, LUFS (YouTube uchun -14..-16)
 EDGE_VOICE = env("EDGE_VOICE", "uz-UZ-SardorNeural")   # yoki uz-UZ-MadinaNeural
+# OmniVoice (bepul, lokal, CPU) — sinov bosqichida
+OMNIVOICE_MODEL = env("OMNIVOICE_MODEL", "k2-fsa/OmniVoice")
+OMNIVOICE_VOICE = env("OMNIVOICE_VOICE", "male, middle-aged, low pitch")   # ovoz tavsifi (inglizcha)
+OMNIVOICE_STEPS = int(env("OMNIVOICE_STEPS", "32"))         # 16 — tezroq, 32 — sifatliroq
+OMNIVOICE_MAX_MINUTES = float(env("OMNIVOICE_MAX_MINUTES", "150"))
+OMNIVOICE_CACHE_DIR = env("OMNIVOICE_CACHE_DIR", str(Path.home() / ".cache" / "uzbooks"))   # saqlangan ovozlar
+OMNIVOICE_REF_WAV = env("OMNIVOICE_REF_WAV")    # faqat lokal: o'z ovozingiz namunasi (repoga qo'ymang!)
+OMNIVOICE_REF_TEXT = env("OMNIVOICE_REF_TEXT")
 # Rasm: "auto" (Gemini, ishlamasa bepul dizayn-kartochka), "gemini" yoki "cards"
 IMAGE_PROVIDER = env("IMAGE_PROVIDER", "auto")
 # Sahna vizuali: "images" — har bir sahnaga mazmunga mos AI rasm (tavsiya, Gemini billing kerak),
