@@ -39,7 +39,8 @@ class AishaEngine(Engine):
     def __init__(self, api_key: str, model: str = "Gulnoza", mood: str = "Neutral", speed: str = "1.0",
                  voice_id: str = "", timeout: float = 120, pause: float = 0.3):
         super().__init__(f"voice_id:{voice_id}" if voice_id else f"{model} ({mood})")
-        self._key, self.model, self.mood, self.speed = api_key, model, mood, speed
+        self._key = (api_key or "").strip().strip('"').strip("'")   # nusxalashda qo'shilgan bo'sh joy/qo'shtirnoq
+        self.model, self.mood, self.speed = model, mood, speed
         self.voice_id, self.timeout, self.pause = voice_id, timeout, pause
         self.chars = 0
 
@@ -77,7 +78,8 @@ class AishaEngine(Engine):
             elif r.status_code == 402:
                 raise TTSError("Aisha: balans yetarli emas — voicelab.uz'da hisobni to'ldiring")
             elif r.status_code in (401, 403):
-                raise TTSError("Aisha: API kalit noto'g'ri yoki ruxsat yo'q")
+                raise TTSError(f"Aisha: API kalit qabul qilinmadi ({r.status_code}). Server javobi: "
+                               f"{r.text[:200]} | Kalit uzunligi: {len(self._key)} belgi")
             elif r.status_code == 400:
                 raise TTSError(f"Aisha: noto'g'ri so'rov — {r.text[:200]}")
             else:
