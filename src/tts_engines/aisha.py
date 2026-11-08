@@ -14,7 +14,8 @@ import requests
 from .base import Engine, TTSError, duration
 
 BASE = "https://back.aisha.group"
-LIMIT = 950
+LIMIT = 950          # API kalit bilan 1000 belgigacha
+PUBLIC_LIMIT = 480   # kalitsiz (ochiq) so'rovda 500 belgigacha
 
 
 def split_long(sentence: str, limit: int = LIMIT) -> list[str]:
@@ -43,10 +44,14 @@ class AishaEngine(Engine):
         self.model, self.mood, self.speed = model, mood, speed
         self.voice_id, self.timeout, self.pause = voice_id, timeout, pause
         self.chars = 0
+        self.public = not self._key       # kalitsiz: ochiq so'rov (hujjatda bor, 500 belgigacha)
+
+    def label(self):
+        return f"aisha:{self.voice}" + (" [kalitsiz]" if self.public else "")
 
     def available(self):
-        if not self._key:
-            return False, "AISHA_API_KEY berilmagan (voicelab.uz/app → API kalit, GitHub Secrets'ga qo'shing)"
+        if self.voice_id and not self._key:
+            return False, "AISHA_VOICE_ID (o'z ovozingiz) uchun AISHA_API_KEY kerak"
         return True, ""
 
     def _request(self, text: str, dest: Path) -> None:
@@ -57,9 +62,11 @@ class AishaEngine(Engine):
             data.update(model=self.model, mood=self.mood)
         last = ""
         for attempt in range(5):
+            headers = {"Accept-Language": "uz"}
+            if not self.public:
+                headers["X-Api-Key"] = self._key
             try:
-                r = requests.post(f"{BASE}/api/v1/tts/post/", data=data, timeout=self.timeout,
-                                  headers={"X-Api-Key": self._key, "Accept-Language": "uz"})
+                r = requests.post(f"{BASE}/api/v1/tts/post/", data=data, timeout=self.timeout, headers=headers)
             except requests.RequestException as e:
                 last = f"tarmoq xatosi: {type(e).__name__}"
                 time.sleep(5 * (attempt + 1))
@@ -77,6 +84,11 @@ class AishaEngine(Engine):
                 last = f"audio yuklab olinmadi ({a.status_code})"
             elif r.status_code == 402:
                 raise TTSError("Aisha: balans yetarli emas — voicelab.uz'da hisobni to'ldiring")
+            elif r.status_code in (401, 403) and not self.public and not self.voice_id:
+                print(f"  ⚠️ Aisha kalitni qabul qilmadi ({r.status_code}: {r.text[:120]}) — kalitsiz rejimga o'tildi")
+                self.public = True
+                return self._request(text[:PUBLIC_LIMIT + 20], dest) if len(text) <= PUBLIC_LIMIT + 20 \
+                    else self._request_parts(text, dest)
             elif r.status_code in (401, 403):
                 raise TTSError(f"Aisha: API kalit qabul qilinmadi ({r.status_code}). Server javobi: "
                                f"{r.text[:200]} | Kalit uzunligi: {len(self._key)} belgi")
@@ -87,12 +99,24 @@ class AishaEngine(Engine):
             time.sleep(5 * (attempt + 1))
         raise TTSError(f"Aisha javob bermadi: {last}")
 
+    def _request_parts(self, text: str, dest: Path) -> None:
+        """Kalitsiz rejimga o'tilganda uzun bo'lak — qismlarga bo'lib so'raladi va birlashtiriladi."""
+        parts = []
+        for j, piece in enumerate(split_long(text, PUBLIC_LIMIT)):
+            p = dest.with_name(f"{dest.stem}_p{j}{dest.suffix}")
+            self._request(piece, p)
+            parts.append(_to_wav(p))
+        lst = dest.with_suffix(".txt")
+        lst.write_text("".join(f"file '{p.resolve()}'\n" for p in parts))
+        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(lst),
+                        "-c:a", "pcm_s16le", "-f", "wav", str(dest)], check=True, timeout=120)
+
     def synth(self, spoken, original, stem):
         pieces, cues, t = [], [], 0.0
         silence = None
         for i, (sp, orig) in enumerate(zip(spoken, original)):
             start = t
-            for k, part in enumerate(split_long(sp)):
+            for k, part in enumerate(split_long(sp, PUBLIC_LIMIT if self.public else LIMIT)):
                 p = stem.with_name(f"{stem.name}_aisha{i:03d}_{k}.wav")
                 self._request(part, p)
                 p = _to_wav(p)
@@ -103,7 +127,7 @@ class AishaEngine(Engine):
             cues.append((start, t, orig))
             pieces.append(silence)
             t += self.pause
-        print(f"  Aisha: {self.chars} belgi ishlatildi (~{self.chars} so'm)")
+        print(f"  Aisha: {self.chars} belgi" + (" (kalitsiz rejim)" if self.public else f" (~{self.chars} so'm)"))
         return pieces, cues
 
 
